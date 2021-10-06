@@ -2,14 +2,14 @@
 #include "Esp.h"
 
 TaskHandle_t uart2_getDown_handle = NULL;
-TaskHandle_t uart2_rev_handle = NULL;
 
-String rev = "";
-unsigned int timecnt;
 String inputString = ""; // 缓存字符串
+String Flag = "\r";      // 缓存字符串
 
-String echo_msg = "get_properties 2 1";
+String echo_2_1 = "get_properties 2 1";
+String echo_2_2 = "get_properties 2 2";
 
+boolean runState = false;       // 是否string已经完成缓存
 boolean stringComplete = false; // 是否string已经完成缓存
 
 uint64_t chipid;
@@ -18,22 +18,37 @@ uint64_t chipid;
 
 void initalRJE();
 
-void test()
+void switch_button()
 {
-  Serial.println("Pressed");
-}
-
-void uart2_getDown_task(void *parameters)
-{
-  for (;;)
+  runState = !runState;
+  if (runState)
   {
-    // Serial.printf("[%lu]:run get_down\n", millis());
-    Serial2.write("get_down\r");
-    vTaskDelay(180 / portTICK_PERIOD_MS);
+    Serial.printf("Pressed %d\n", runState);
+    Serial2.write("properties_changed 2 2 \"true\"\r");
+    Serial2.write("properties_changed 2 1 0 0\r");
+  }
+  else
+  {
+    Serial2.write("properties_changed 2 2 \"false\"\r");
+    Serial2.write("properties_changed 2 1 0 1\r");
   }
 }
 
-void uart2_rev_task(void *parameters)
+void echo_2_1_fault()
+{
+  // echo device fault info
+
+  Serial2.write("result 2 1 0 0\r");
+}
+
+void echo_2_2_on()
+{
+  // echo device fault info
+
+  Serial2.write("result 2 2 \"true\"\r");
+}
+
+void uart2_getDown_task(void *parameters)
 {
   for (;;)
   {
@@ -48,14 +63,15 @@ void uart2_rev_task(void *parameters)
         inputString += inChar;
       }
     }
-    // Serial.println(inputString);
-    // vTaskDelay(5 / portTICK_PERIOD_MS);
 
     // Judge wether the echo contains commands
-    if (inputString.indexOf(echo_msg) != -1)
+    if (inputString.indexOf(echo_2_1) != -1)
     {
-      Serial2.write("result 2 1 0 0\r");
-      // Serial.println("Yes");
+      echo_2_1_fault();
+    }
+    if (inputString.indexOf(echo_2_2) != -1)
+    {
+      echo_2_2_on();
     }
     vTaskDelay(80 / portTICK_PERIOD_MS);
   }
@@ -80,32 +96,32 @@ void initalRJE()
 
   // print chip info
 
-  Serial.printf("\n\nDevice Info\n");
+  Serial.printf("\n\nDevice Info:\n");
   chipid = ESP.getEfuseMac();
   Serial.printf("ESP32 Chip ID = %04X", (uint16_t)(chipid >> 32)); //print High 2 bytes
   Serial.printf("%08X\n", (uint32_t)chipid);                       //print Low 4 bytes.
-  Serial.printf("total heap size = %u\n", ESP.getHeapSize());
-  Serial.printf("available heap = %u\n", ESP.getFreeHeap());
-  Serial.printf("lowest level of free heap since boot = %u\n", ESP.getMinFreeHeap());
-  Serial.printf("largest block of heap that can be allocated at once = %u\n", ESP.getMaxAllocHeap());
-  Serial.printf("total Psram size = %u\n", ESP.getPsramSize());
-  Serial.printf("available Psram = %u\n", ESP.getFreePsram());
-  Serial.printf("lowest level of free Psram since boot = %u\n", ESP.getMinFreePsram());
-  Serial.printf("largest block of Psram that can be allocated at once = %u\n", ESP.getMinFreePsram());
-  Serial.printf("get Chip Revision = %u\n", ESP.getChipRevision());
-  Serial.printf("getCpuFreqMHz = %u\n", ESP.getCpuFreqMHz());
-  Serial.printf("get Cycle Count = %u\n", ESP.getCycleCount());
+  Serial.printf("ESP32 Chip model = %s Rev %u\n", ESP.getChipModel(), ESP.getChipRevision());
+  Serial.printf("ESP32 CpuFreqMHz = %u\n", ESP.getCpuFreqMHz());
+  Serial.printf("ESP32 total heap size = %u\n", ESP.getHeapSize());
+  Serial.printf("ESP32 available heap = %u\n", ESP.getFreeHeap());
+  Serial.printf("ESP32 lowest level of free heap since boot = %u\n", ESP.getMinFreeHeap());
+  Serial.printf("ESP32 largest block of heap that can be allocated at once = %u\n", ESP.getMaxAllocHeap());
+  Serial.printf("ESP32 total Psram size = %u\n", ESP.getPsramSize());
+  Serial.printf("ESP32 available Psram = %u\n", ESP.getFreePsram());
+  Serial.printf("ESP32 lowest level of free Psram since boot = %u\n", ESP.getMinFreePsram());
+  Serial.printf("ESP32 largest block of Psram that can be allocated at once = %u\n", ESP.getMinFreePsram());
+  Serial.printf("ESP32 Cycle Count = %u\n", ESP.getCycleCount());
 
   // Set Interrupt
 
-  attachInterrupt(digitalPinToInterrupt(0), test, HIGH);
+  attachInterrupt(digitalPinToInterrupt(0), switch_button, HIGH);
 }
 
 void setup()
 {
   initalRJE();
   // xTaskCreate(uart2_getDown_task, "uart2_getDown_task", 1024, NULL, 1, &uart2_getDown_handle);
-  xTaskCreate(uart2_rev_task, "uart2_rev_task", 1024, NULL, 1, &uart2_rev_handle);
+  xTaskCreate(uart2_getDown_task, "uart2_getDown_task", 1024, NULL, 1, &uart2_getDown_handle);
 }
 
 void loop()
