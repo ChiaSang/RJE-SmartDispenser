@@ -1,10 +1,12 @@
 #include <Arduino.h>
+#include <CmdBuffer.hpp>
 #include "Esp.h"
 
+CmdBuffer<64> cmdBuffer;
 TaskHandle_t uart2_getDown_handle = NULL;
 
-String inputString = ""; // 缓存字符串
-String Flag = "\r";      // 缓存字符串
+// 缓存字符串
+String Flag = "\r"; // 缓存字符串
 
 String echo_2_1 = "get_properties 2 1";
 String echo_2_2 = "get_properties 2 2";
@@ -37,15 +39,15 @@ void switch_button()
 void echo_2_1_fault()
 {
   // echo device fault info
-
+  Serial.println("echo_2_1_fault");
   Serial2.write("result 2 1 0 0\r");
 }
 
 void echo_2_2_on()
 {
   // echo device fault info
-
-  Serial2.write("result 2 2 \"true\"\r");
+  Serial.println("echo_2_2_on");
+  Serial2.write("result 2 2 0 true\r");
 }
 
 void uart2_getDown_task(void *parameters)
@@ -53,29 +55,34 @@ void uart2_getDown_task(void *parameters)
   for (;;)
   {
     Serial2.write("get_down\r");
+
     if (Serial2.available())
     {
+      String inputString = "";
       while (Serial2.available())
       {
         // 获取新的字符:
         char inChar = (char)Serial2.read();
+        Serial.print(inChar);
         // 将它加到inputString中:
         inputString += inChar;
       }
+      Serial.println(inputString);
+      // Judge wether the echo contains commands
+      if (inputString.indexOf(echo_2_1) != -1)
+      // if (inputString.equals("get_properties 2 1"))
+      {
+        echo_2_1_fault();
+      }
+      if (inputString.indexOf(echo_2_2) != -1)
+      {
+        echo_2_2_on();
+      }
+      vTaskDelay(80 / portTICK_PERIOD_MS);
     }
-
-    // Judge wether the echo contains commands
-    if (inputString.indexOf(echo_2_1) != -1)
-    {
-      echo_2_1_fault();
-    }
-    if (inputString.indexOf(echo_2_2) != -1)
-    {
-      echo_2_2_on();
-    }
-    vTaskDelay(80 / portTICK_PERIOD_MS);
   }
 }
+
 void initalRJE()
 {
 
