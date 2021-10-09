@@ -1,9 +1,12 @@
 #include <Arduino.h>
-#include <CmdBuffer.hpp>
 #include "Esp.h"
 
-CmdBuffer<64> cmdBuffer;
+#define TOUCHPIN0 4
+
+#define TOUCH_THRESHOLD 10
+
 TaskHandle_t uart2_getDown_handle = NULL;
+TaskHandle_t cmdParser_handler = NULL;
 
 // 缓存字符串
 String Flag = "\r"; // 缓存字符串
@@ -11,8 +14,9 @@ String Flag = "\r"; // 缓存字符串
 String echo_2_1 = "get_properties 2 1";
 String echo_2_2 = "get_properties 2 2";
 
-boolean runState = false;       // 是否string已经完成缓存
-boolean stringComplete = false; // 是否string已经完成缓存
+boolean runState = false;
+boolean stringComplete = false;
+boolean deviceState = false;
 
 uint64_t chipid;
 
@@ -20,40 +24,53 @@ uint64_t chipid;
 
 void initalRJE();
 
-void switch_button()
+void restore()
 {
-  runState = !runState;
-  if (runState)
-  {
-    Serial.printf("Pressed %d\n", runState);
-    Serial2.write("properties_changed 2 2 \"true\"\r");
-    Serial2.write("properties_changed 2 1 0 0\r");
-  }
-  else
-  {
-    Serial2.write("properties_changed 2 2 \"false\"\r");
-    Serial2.write("properties_changed 2 1 0 1\r");
-  }
+  // Serial2.write("restore\r");
+}
+
+void open_device()
+{
+  deviceState = !deviceState;
+  Serial.println(deviceState);
 }
 
 void echo_2_1_fault()
 {
   // echo device fault info
-  Serial.println("echo_2_1_fault");
+  Serial.println("echo_2_1_fault_info");
   Serial2.write("result 2 1 0 0\r");
 }
 
 void echo_2_2_on()
 {
   // echo device fault info
-  Serial.println("echo_2_2_on");
-  Serial2.write("result 2 2 0 true\r");
+  if (deviceState)
+  {
+    Serial.println("echo_2_2_on");
+    Serial2.write("result 2 2 0 true\r");
+  }
+  else
+  {
+    Serial.println("echo_2_2_off");
+    Serial2.write("result 2 2 0 false\r");
+  }
 }
+
+// void cmdParser(void *inputString)
+// {
+//   if (inputString.indexOf("get_properties 2 1") != -1)
+//   {
+//     Serial.println("echo_2_1_fault_info");
+//     Serial2.write("result 2 1 0 0\r");
+//   }
+// }
 
 void uart2_getDown_task(void *parameters)
 {
   for (;;)
   {
+
     Serial2.write("get_down\r");
 
     if (Serial2.available())
@@ -61,24 +78,99 @@ void uart2_getDown_task(void *parameters)
       String inputString = "";
       while (Serial2.available())
       {
-        // 获取新的字符:
         char inChar = (char)Serial2.read();
-        Serial.print(inChar);
-        // 将它加到inputString中:
         inputString += inChar;
       }
-      Serial.println(inputString);
+
+      if (!inputString.equals("down none\r"))
+      {
+        Serial.println(inputString);
+        // xTaskCreate(cmdParser, "cmdParser", 1024, (void *)&inputString, 1, &cmdParser_handler);
+      }
+
+      //
+      //
+      //
+      //
+      //
+      //
       // Judge wether the echo contains commands
-      if (inputString.indexOf(echo_2_1) != -1)
+      if (inputString.indexOf("get_properties 2 1") != -1)
       // if (inputString.equals("get_properties 2 1"))
       {
-        echo_2_1_fault();
+        Serial.println("echo_2_1_fault_info");
+        Serial2.write("result 2 1 0 0\r");
       }
-      if (inputString.indexOf(echo_2_2) != -1)
+
+      if (inputString.indexOf("get_properties 2 2") != -1)
       {
-        echo_2_2_on();
+        if (deviceState)
+        {
+          Serial.println("echo_2_2_on");
+          Serial2.write("result 2 2 0 true\r");
+        }
+        else
+        {
+          Serial.println("echo_2_2_off");
+          Serial2.write("result 2 2 0 false\r");
+        }
       }
-      vTaskDelay(80 / portTICK_PERIOD_MS);
+
+      if (inputString.indexOf("get_properties 2 3") != -1)
+      {
+        String temperature = String(random(1, 4));
+        String msg = "result 2 3 0 " + temperature + "\r";
+        char buffer[msg.length()];
+        msg.toCharArray(buffer, msg.length() + 1);
+        Serial2.write(buffer);
+        Serial.println("echo_2_3_status");
+      }
+
+      if (inputString.indexOf("get_properties 2 4") != -1)
+      {
+        String temperature = String(random(1, 4));
+        String msg = "result 2 4 0 " + temperature + "\r";
+        char buffer[msg.length()];
+        msg.toCharArray(buffer, msg.length() + 1);
+        Serial2.write(buffer);
+        Serial.println("echo_2_4_status");
+      }
+
+      if (inputString.indexOf("get_properties 2 5") != -1)
+      {
+        String temperature = String(random(0, 100));
+        String msg = "result 2 5 0 " + temperature + "\r";
+        char buffer[msg.length()];
+        msg.toCharArray(buffer, msg.length() + 1);
+        Serial2.write(buffer);
+        Serial.println("echo_2_5_status");
+      }
+
+      if (inputString.indexOf("get_properties 2 6") != -1)
+      {
+        String temperature = String(random(30, 60));
+        String msg = "result 2 6 0 " + temperature + "\r";
+        char buffer[msg.length()];
+        msg.toCharArray(buffer, msg.length() + 1);
+        Serial2.write(buffer);
+        Serial.println("echo_2_6_status");
+      }
+
+      if (inputString.equals("down set_properties 2 2 true\r"))
+      {
+        deviceState = true;
+        Serial2.write("get_down true\r");
+        Serial2.write("properties_changed 2 2 true\r");
+      }
+
+      if (inputString.equals("down set_properties 2 2 false\r"))
+      {
+        deviceState = false;
+        Serial2.write("result 2 2 0 false\r");
+        Serial2.write("properties_changed 2 2 false\r");
+      }
+
+      vTaskDelay(100 / portTICK_PERIOD_MS);
     }
   }
 }
@@ -121,14 +213,14 @@ void initalRJE()
 
   // Set Interrupt
 
-  attachInterrupt(digitalPinToInterrupt(0), switch_button, HIGH);
+  attachInterrupt(digitalPinToInterrupt(0), restore, HIGH);
+  touchAttachInterrupt(T0, open_device, TOUCH_THRESHOLD);
 }
 
 void setup()
 {
   initalRJE();
-  // xTaskCreate(uart2_getDown_task, "uart2_getDown_task", 1024, NULL, 1, &uart2_getDown_handle);
-  xTaskCreate(uart2_getDown_task, "uart2_getDown_task", 1024, NULL, 1, &uart2_getDown_handle);
+  xTaskCreatePinnedToCore(uart2_getDown_task, "uart2_getDown_task", 1024, NULL, 1, &uart2_getDown_handle, 0);
 }
 
 void loop()
