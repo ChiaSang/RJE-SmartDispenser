@@ -194,7 +194,32 @@ void uart2_getDown_task(void *parameters)
         Serial2.write("result 2 4 0 3\r");
         Serial2.write("properties_changed 2 4 3\r");
       }
-      vTaskDelay(80 / portTICK_PERIOD_MS);
+
+      if (inputString.indexOf("get_properties 2 6") != -1)
+      {
+        String temperature = String(random(30, 60));
+        String msg = "result 2 6 0 " + temperature + "\r";
+        char buffer[msg.length()];
+        msg.toCharArray(buffer, msg.length() + 1);
+        Serial2.write(buffer);
+        Serial.println("echo_2_6_status");
+      }
+
+      if (inputString.equals("down set_properties 2 2 true\r"))
+      {
+        deviceState = true;
+        Serial2.write("get_down true\r");
+        Serial2.write("properties_changed 2 2 true\r");
+      }
+
+      if (inputString.equals("down set_properties 2 2 false\r"))
+      {
+        deviceState = false;
+        Serial2.write("result 2 2 0 false\r");
+        Serial2.write("properties_changed 2 2 false\r");
+      }
+
+      vTaskDelay(100 / portTICK_PERIOD_MS);
     }
   }
 }
