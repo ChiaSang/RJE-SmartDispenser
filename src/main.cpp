@@ -19,10 +19,11 @@ CmdParser cmdParser;
 QueueHandle_t queueGetting;
 QueueHandle_t queueSetting;
 
-TaskHandle_t getdown_loop_handler = NULL;
+TaskHandle_t uart2_receive_handler = NULL;
 TaskHandle_t execute_cmd_handler = NULL;
 TaskHandle_t report_state_handler = NULL;
 TaskHandle_t parserCMD_handler = NULL;
+TaskHandle_t uart2_send_handler = NULL;
 
 boolean deviceState = 0;
 boolean loopState = true;
@@ -130,9 +131,11 @@ void parseCMD(void *parameters)
           {
           case '1':
           { // attribute 1
-            Serial.printf("receive_%s parser get 1\n", cmd.c_str());
-            Serial2.write("result 2 1 0 0\r");
+            // Serial.printf("receive_%s parser get 1\n", cmd.c_str());
+            // Serial2.write("result 2 1 0 0\r");
+            char cmd[] = "result 2 1 0 0\r";
             loopState = true;
+            xQueueSend(queueSetting, &cmd, portMAX_DELAY);
             break;
           }
           case '2':
@@ -172,11 +175,10 @@ void parseCMD(void *parameters)
           case '5':
           {
             Serial.printf("receive_%s parser get 5\n", cmd.c_str());
-            String temperature = String(random(0, 100));
-            String msg = "result 2 5 0 " + temperature + "\r";
-            char buffer[msg.length()];
-            msg.toCharArray(buffer, msg.length() + 1);
-            Serial2.write(buffer);
+            char msg[] = "result 2 5 0 ";
+            char c[4];
+            itoa(currentTemperature, c, 10);
+            Serial2.write(strcat(msg, strcat(c, "\r")));
             loopState = true;
             break;
           }
@@ -201,6 +203,7 @@ void parseCMD(void *parameters)
       {
         const char *siid = cmdParser.getCmdParam(2);
         const char *piid = cmdParser.getCmdParam(3);
+        const char *val = cmdParser.getCmdParam(4);
         if (*siid == '2')
         {
           switch (*piid)
@@ -208,8 +211,8 @@ void parseCMD(void *parameters)
 
           case '2':
           {
-            const char *val = cmdParser.getCmdParam(4);
-            runState = atoi(val);
+            runState = *val - '0';
+            Serial.printf("设备状态: %d", runState);
             Serial2.write("result 2 2 0\r");
             Serial2.write("properties_changed 2 2 1\r");
             loopState = true;
@@ -233,13 +236,15 @@ void parseCMD(void *parameters)
           }
         }
       }
+
       else
       {
         Serial.printf(cmdParser.getCommand());
         loopState = true;
       }
     }
-    vTaskDelay(10 / portTICK_PERIOD_MS);
+
+    vTaskDelay(30 / portTICK_PERIOD_MS);
   }
 }
 
@@ -265,13 +270,15 @@ void report_state(void *parameters)
 {
   for (;;)
   {
-    String temperature = String(random(50, 100));
-    String msg = "properties_changed 2 5 " + temperature + "\r";
-    char buffer[msg.length()];
-    msg.toCharArray(buffer, msg.length() + 1);
-    Serial2.write(buffer);
-    loopState = true;
-    vTaskDelay(3000 / portTICK_PERIOD_MS);
+    // settingTemperature = random(25, 101);
+    currentTemperature = random(25, 101);
+    // String temperature = String(random(50, 100));
+    // String msg = "properties_changed 2 5 " + temperature + "\r";
+    // char buffer[msg.length()];
+    // msg.toCharArray(buffer, msg.length() + 1);
+    // Serial2.write(buffer);
+    // loopState = true;
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
 
@@ -360,7 +367,7 @@ void report_state(void *parameters)
 //       Serial2.write("result 2 2 0\r");
 //       Serial2.write("properties_changed 2 2 true\r");
 //       loopState = true;
-//       // vTaskResume(getdown_loop_handler);
+//       // vTaskResume(uart2_receive_handler);
 //     }
 
 //     else if (cmd.indexOf("down set_properties 2 2 false\r") != -1)
@@ -418,7 +425,7 @@ void report_state(void *parameters)
 // }
 
 // Loop getDown command and receive acknowledge message
-void getdown_loop(void *parameters)
+void uart2_receive(void *parameters)
 {
   for (;;)
   {
@@ -427,24 +434,44 @@ void getdown_loop(void *parameters)
     {
       while (Serial2.available())
       {
-        char inChar = (char)Serial2.read();
+        char inChar = Serial2.read();
         inputString += inChar;
+        if (inChar == '\\')
+        {
+          xQueueSend(queueGetting, &inputString, portMAX_DELAY);
+        }
       }
 
-      if (!inputString.equals("down none\r") && !inputString.equals("ok\r") && !inputString.equals("error\r"))
-      {
-        loopState = false;
-        xQueueSend(queueGetting, &inputString, portMAX_DELAY);
-      }
-      else
-      {
-        // Log.warning("receive_%s", inputString.c_str());
-        loopState = true;
-      }
+      // if (!inputString.equals("down none\r") && !inputString.equals("ok\r") && !inputString.equals("error\r"))
+      // {
+      //   loopState = false;
+      //   xQueueSend(queueGetting, &inputString, portMAX_DELAY);
+      // }
+      // else
+      // {
+      // Log.warning("receive_%s", inputString.c_str());
+      //   loopState = true;
+      // }
+    }
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+  }
+}
+
+void uart2_send(void *parameters)
+{
+  for (;;)
+  {
+    Serial.println("get_fdfdfddown\r");
+    char *str;
+    // str = (char *)ps_calloc(256, sizeof(char)); // put str buffer into PSRAM
+    xQueueReceive(queueSetting, &str, portMAX_DELAY);
+    if (queueSetting != NULL)
+    {
+      Serial2.write("get_down\r");
     }
     else
     {
-      Serial2.write("get_down\r");
+      Serial2.write(str);
     }
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }
@@ -501,22 +528,23 @@ void InitialDevice()
 void setup()
 {
   InitialDevice();
-  xTaskCreatePinnedToCore(getdown_loop, "getdown_loop", 2048, NULL, 1, &getdown_loop_handler, 1);
-  // xTaskCreatePinnedToCore(report_state, "report_state", 2048, NULL, 1, &report_state_handler, 1);
-  // xTaskCreatePinnedToCore(execute_cmd, "execute_cmd", 2048, NULL, 1, &execute_cmd_handler, 0);
-  xTaskCreatePinnedToCore(parseCMD, "parseCMD", 2048, NULL, 1, &parserCMD_handler, 0);
+  xTaskCreatePinnedToCore(uart2_receive, "uart2_receive", 4096, NULL, 1, &uart2_receive_handler, 1);
+  xTaskCreatePinnedToCore(report_state, "report_state", 4096, NULL, 1, &report_state_handler, 1);
+  // xTaskCreatePinnedToCore(execute_cmd, "execute_cmd", 4096, NULL, 1, &execute_cmd_handler, 0);
+  xTaskCreatePinnedToCore(parseCMD, "parseCMD", 4096, NULL, 1, &parserCMD_handler, 0);
+  xTaskCreatePinnedToCore(uart2_send, "uart2_send", 4096, NULL, 1, &uart2_send_handler, 1);
 }
 
 void loop()
 {
 
   // Loop task by loopState flag
-  if (loopState)
-  {
-    vTaskResume(getdown_loop_handler);
-  }
-  else
-  {
-    vTaskSuspend(getdown_loop_handler);
-  }
+  // if (loopState)
+  // {
+  //   vTaskResume(uart2_receive_handler);
+  // }
+  // else
+  // {
+  //   vTaskSuspend(uart2_receive_handler);
+  // }
 }
