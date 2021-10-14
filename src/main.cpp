@@ -37,8 +37,6 @@ int keepTemperature = 30;
 int currentTemperature = 26;
 int settingTemperature = 95;
 
-String inputString = "";
-
 // void InitialDevice();
 // void printLogLevel();
 // void printTimestamp();
@@ -105,155 +103,6 @@ void printPrefix(Print *_logOutput, int logLevel)
   printTimestamp(_logOutput);
   // printLogLevel(_logOutput, logLevel);
 }
-//---------------------------------------------------------
-
-// Parse command and assign tasks corresponding to commands
-void parseCMD(String cmd)
-{
-  // String cmd;
-  Log.notice("命令处理" CR);
-  // char *cmd;
-  for (;;)
-  {
-    // xQueueReceive(queueGetting, &cmd, portMAX_DELAY);
-    char buffer[inputString.length()];
-    inputString.toCharArray(buffer, inputString.length());
-    Log.notice("接收到的命令为: %s" CR, buffer);
-    if (cmdParser.parseCmd(buffer) != CMDPARSER_ERROR)
-    {
-      // const size_t count = cmdParser.getParamCount();
-
-      // get_properties
-      if (cmdParser.equalCommand("get_properties"))
-      {
-        const char *siid = cmdParser.getCmdParam(2);
-        const char *piid = cmdParser.getCmdParam(3);
-        if (*siid == '2')
-        {
-          // Serial.printf("water-dispenser\n");
-          switch (*piid)
-          {
-          case '1':
-          { // attribute 1
-            // Serial.printf("receive_%s parser get 1\n", cmd.c_str());
-            char const *echo_cmd = "result 2 1 0 0\r";
-            loopState = true;
-            Log.notice("接收处理前" CR);
-            Serial.println("接收处理前");
-            Serial2.write(echo_cmd);
-            Log.notice("接收处理后" CR);
-            inputString = "";
-            break;
-          }
-          case '2':
-          {
-            if (runState)
-            {
-              Serial2.write("result 2 2 0 1\r");
-            }
-            else
-            {
-              Serial2.write("result 2 2 0 0\r");
-            }
-            loopState = true;
-            break;
-          }
-          case '3':
-          {
-
-            char msg[] = "result 2 3 0 ";
-            char c[2];
-            itoa(runState, c, 10);
-            // Serial.println(strcat(msg, strcat(c, "\r")));
-            Serial2.write(strcat(msg, strcat(c, "\r")));
-            loopState = true;
-            break;
-          }
-          case '4':
-          {
-
-            char msg[] = "result 2 4 0 ";
-            char c[2];
-            itoa(deviceMode, c, 10);
-            Serial2.write(strcat(msg, strcat(c, "\r")));
-            loopState = true;
-            break;
-          }
-          case '5':
-          {
-
-            char msg[] = "result 2 5 0 ";
-            char c[4];
-            itoa(currentTemperature, c, 10);
-            Serial2.write(strcat(msg, strcat(c, "\r")));
-            loopState = true;
-            break;
-          }
-          case '6':
-          {
-
-            char msg[] = "result 2 6 0 ";
-            char c[4];
-            itoa(settingTemperature, c, 10);
-            Serial2.write(strcat(msg, strcat(c, "\r")));
-            loopState = true;
-            break;
-          }
-          default:
-            break;
-          }
-        }
-      }
-
-      // set_properties
-      else if (cmdParser.equalCommand("set_properties"))
-      {
-        const char *siid = cmdParser.getCmdParam(2);
-        const char *piid = cmdParser.getCmdParam(3);
-        const char *val = cmdParser.getCmdParam(4);
-        if (*siid == '2')
-        {
-          switch (*piid)
-          {
-
-          case '2':
-          {
-            runState = *val - '0';
-            Serial.printf("设备状态: %d", runState);
-            Serial2.write("result 2 2 0\r");
-            Serial2.write("properties_changed 2 2 1\r");
-            loopState = true;
-            break;
-          }
-
-          case '4':
-          {
-            Serial.printf("parser set 4\n");
-            break;
-          }
-
-          case '6':
-          {
-            Serial.printf("parser set 6\n");
-            break;
-          }
-
-          default:
-            break;
-          }
-        }
-      }
-
-      else
-      {
-        Serial.printf(cmdParser.getCommand());
-        loopState = true;
-      }
-    }
-
-    vTaskDelay(50 / portTICK_PERIOD_MS);
-  }
-}
 
 // Get device state by pressing touch button
 void device_switch()
@@ -289,199 +138,194 @@ void report_state(void *parameters)
   }
 }
 
-// Execute command
-// void execute_cmd(void *parameters)
-// {
-//   String cmd;
-//   for (;;)
-//   {
-//     xQueueReceive(queueGetting, &cmd, portMAX_DELAY);
-//     // Serial.println(cmd);
-//     if (cmd.indexOf("get_properties 2 1") != -1)
-//     // if (cmd.equals("get_properties 2 1"))
-//     {
-//       // Serial.println("echo: " + cmd);
-//       Serial.printf("receive_%s", cmd.c_str());
-//       Serial2.write("result 2 1 0 0\r");
-//       loopState = true;
-//     }
-
-//     else if (cmd.indexOf("get_properties 2 2") != -1)
-//     {
-//       if (deviceState)
-//       {
-//         Serial.printf("receive_%s", cmd.c_str());
-//         Serial.printf("Echo: echo_2_2_on");
-//         Serial2.write("result 2 2 0 true\r");
-//         loopState = true;
-//       }
-//       else
-//       {
-//         Serial.printf("Echo: echo_2_2_off");
-//         Serial2.write("result 2 2 0 false\r");
-//         loopState = true;
-//       }
-//     }
-
-//     else if (cmd.indexOf("get_properties 2 3") != -1)
-//     {
-//       String temperature = String(random(1, 4));
-//       String msg = "result 2 3 0 " + temperature + "\r";
-//       char buffer[msg.length()];
-//       msg.toCharArray(buffer, msg.length() + 1);
-//       Serial2.write(buffer);
-//       Serial.printf("Echo: echo_2_3_status");
-//       loopState = true;
-//     }
-
-//     else if (cmd.indexOf("get_properties 2 4") != -1)
-//     {
-//       String msg = "result 2 4 0 " + (String)runState + "\r";
-//       char buffer[msg.length()];
-//       msg.toCharArray(buffer, msg.length() + 1);
-//       Serial2.write(buffer);
-//       Serial.printf("Echo: echo_2_4_status");
-//       loopState = true;
-//     }
-
-//     else if (cmd.indexOf("get_properties 2 5") != -1)
-//     {
-//       String temperature = String(random(0, 100));
-//       String msg = "result 2 5 0 " + temperature + "\r";
-//       char buffer[msg.length()];
-//       msg.toCharArray(buffer, msg.length() + 1);
-//       Serial2.write(buffer);
-//       Serial.printf("Echo: echo_2_5_status");
-//       loopState = true;
-//     }
-
-//     else if (cmd.indexOf("get_properties 2 6") != -1)
-//     {
-//       String msg = "result 2 6 0 " + (String)keepTemperature + "\r";
-//       char buffer[msg.length()];
-//       msg.toCharArray(buffer, msg.length() + 1);
-//       Serial2.write(buffer);
-//       Serial.printf("Echo: echo_2_6_status");
-//       loopState = true;
-//     }
-
-//     //------------------------------------------------------
-//     // Setting device state
-//     else if (cmd.indexOf("down set_properties 2 2 true\r") != -1)
-//     {
-//       Serial.printf("Echo: 2 2 true");
-//       deviceState = true;
-//       Serial2.write("result 2 2 0\r");
-//       Serial2.write("properties_changed 2 2 true\r");
-//       loopState = true;
-//       // vTaskResume(uart2_receive_handler);
-//     }
-
-//     else if (cmd.indexOf("down set_properties 2 2 false\r") != -1)
-//     {
-//       Serial.printf("Echo: 2 2 false");
-//       deviceState = false;
-//       Serial2.write("result 2 2 0\r");
-//       Serial2.write("properties_changed 2 2 false\r");
-//       loopState = true;
-//     }
-
-//     //------------------------------------------------------
-//     // Setting mode
-//     else if (cmd.equals("down set_properties 2 4 1\r"))
-//     {
-//       runState = 1;
-//       Serial2.write("result 2 4 0\r");
-//       Serial2.write("properties_changed 2 4 1\r");
-//       loopState = true;
-//     }
-
-//     else if (cmd.equals("down set_properties 2 4 2\r"))
-//     {
-//       runState = 2;
-//       Serial2.write("result 2 4 0\r");
-//       Serial2.write("properties_changed 2 4 2\r");
-//       loopState = true;
-//     }
-
-//     else if (cmd.equals("down set_properties 2 4 3\r"))
-//     {
-//       runState = 3;
-//       Serial2.write("result 2 4 0\r");
-//       Serial2.write("properties_changed 2 4 3\r");
-//       loopState = true;
-//     }
-
-//     //------------------------------------------------------
-//     // Setting heat temperature
-//     else if (cmd.equals("down set_properties 2 6 3\r"))
-//     {
-//       Serial2.write("result 2 4 0\r");
-//       Serial2.write("properties_changed 2 6 3\r");
-//       loopState = true;
-//     }
-
-//     //------------------------------------------------------
-//     // Print unmatched command
-//     else
-//     {
-//       loopState = true;
-//     }
-//     vTaskDelay(30 / portTICK_PERIOD_MS);
-//   }
-// }
-
-// Loop getDown command and receive acknowledge message
-void uart2_receive(void *parameters)
+// ======================================================================
+// Parse command and assign tasks corresponding to commands
+void parseCMD(const char *cmd)
 {
-  for (;;)
+  int len = strlen(cmd);
+  char *newStr = new char[len + 1];
+  for (int k = 0; k < len; k++)
   {
-    String inputString = "";
-    if (Serial2.available() > 0)
+    newStr[k] = cmd[k];
+  }
+  newStr[len] = '\0';
+
+  Log.notice("接收到的命令为: %s" CR, cmd, strlen(cmd));
+  Log.notice("长度为: %d" CR, strlen(cmd));
+
+  // for (size_t i = 0; i < strlen(cmd); i++)
+  // {
+  //   if (cmd[i] != ' ')
+  //   {
+  //     /* code */
+  //   }
+  // }
+  // char ec[] = "down get_properties 2 1\r";
+
+  // if (strcmp(ec, cmd) == 0)
+  // {
+  //   Serial2.write("result 2 1 0 0\r");
+  //   Log.notice("应答" CR);
+  // }
+
+  if (cmdParser.parseCmd(newStr) != CMDPARSER_ERROR)
+  {
+    //   // const size_t count = cmdParser.getParamCount();
+    const char *siid = cmdParser.getCmdParam(2);
+    const char *piid = cmdParser.getCmdParam(3);
+
+    // get_properties
+    if (cmdParser.equalCommand("get_properties"))
     {
-      while (Serial2.available())
+      Log.notice("解析的命令为: %s" CR, cmdParser.getCommand());
+      if (*siid == '2')
       {
-        char inChar = Serial2.read();
-        inputString += inChar;
-        if (inChar == '\\')
+        switch (*piid)
         {
-          char buffer[inputString.length()];
-          inputString.toCharArray(buffer, inputString.length());
-          xQueueSend(queueGetting, &buffer, portMAX_DELAY);
+        case '1':
+        { // attribute 1
+          // Serial.printf("receive_%s parser get 1\n", cmd.c_str());
+          // char const *echo_cmd = "result 2 1 0 0\r";
+          // loopState = true;
+          Serial2.write("result 2 1 0 0\r");
+          break;
+        }
+        case '2':
+        {
+          if (runState)
+          {
+            Serial2.write("result 2 2 0 1\r");
+          }
+          else
+          {
+            Serial2.write("result 2 2 0 0\r");
+          }
+          loopState = true;
+          break;
+        }
+        case '3':
+        {
+
+          char msg[] = "result 2 3 0 ";
+          char c[2];
+          itoa(runState, c, 10);
+          // Serial.println(strcat(msg, strcat(c, "\r")));
+          Serial2.write(strcat(msg, strcat(c, "\r")));
+          loopState = true;
+          break;
+        }
+        case '4':
+        {
+
+          char msg[] = "result 2 4 0 ";
+          char c[2];
+          itoa(deviceMode, c, 10);
+          Serial2.write(strcat(msg, strcat(c, "\r")));
+          loopState = true;
+          break;
+        }
+        case '5':
+        {
+
+          char msg[] = "result 2 5 0 ";
+          char c[4];
+          itoa(currentTemperature, c, 10);
+          Serial2.write(strcat(msg, strcat(c, "\r")));
+          loopState = true;
+          break;
+        }
+        case '6':
+        {
+
+          char msg[] = "result 2 6 0 ";
+          char c[4];
+          itoa(settingTemperature, c, 10);
+          Serial2.write(strcat(msg, strcat(c, "\r")));
+          loopState = true;
+          break;
+        }
+        default:
+          break;
         }
       }
-      Log.notice("recv: %s" CR, inputString.c_str());
     }
-    // else
-    // {
-    //   char const *str = "get_down\r";
-    //   xQueueSend(queueSetting, &str, portMAX_DELAY);
-    // }
-    vTaskDelay(100 / portTICK_PERIOD_MS);
-  }
-}
 
-void uart2_send(void *parameters)
-{
-  for (;;)
-  {
-    char *str;
-    xQueueReceive(queueSetting, &str, portMAX_DELAY);
-    if (*str)
+    // set_properties
+    else if (cmdParser.equalCommand("set_properties"))
     {
-      Log.notice("transmit: %s" CR, str);
-      Serial2.write(str);
+      const char *siid = cmdParser.getCmdParam(2);
+      const char *piid = cmdParser.getCmdParam(3);
+      const char *val = cmdParser.getCmdParam(4);
+      if (*siid == '2')
+      {
+        switch (*piid)
+        {
+
+        case '2':
+        {
+          runState = *val - '0';
+          Serial.printf("设备状态: %d", runState);
+          Serial2.write("result 2 2 0\r");
+          Serial2.write("properties_changed 2 2 1\r");
+          loopState = true;
+          break;
+        }
+
+        case '4':
+        {
+          Serial.printf("parser set 4\n");
+          break;
+        }
+
+        case '6':
+        {
+          Serial.printf("parser set 6\n");
+          break;
+        }
+
+        default:
+          break;
+        }
+      }
     }
+
     else
     {
-      char const *str = "get_down\r";
-      xQueueSend(queueSetting, &str, portMAX_DELAY);
+      Log.notice("Command: %s No Action" CR, cmd);
     }
-
-    vTaskDelay(200 / portTICK_PERIOD_MS);
   }
 }
 
+// ======================================================================
+// Loop getDown command and receive acknowledge message
+void getDown()
+{
+  String inputString = "";
+  // char *cmd;
+  if (Serial2.available())
+  {
+    while (Serial2.available())
+    {
+      char inChar = (char)Serial2.read();
+      if (inChar != '\\')
+      {
+        inputString += inChar;
+      }
+    }
+    // cmd = &inputString[0];
+    parseCMD(inputString.c_str());
+    Log.notice("recv: %s" CR, inputString.c_str());
+    // char buffer[inputString.length()];
+    // inputString.toCharArray(buffer, inputString.length());
+  }
+  else
+  {
+    Serial2.write("get_down\r");
+    Log.verbose("query: %s" CR, "get_down");
+  }
+}
+
+// ======================================================================
 // Initial device configuration
 void InitialDevice()
 {
@@ -497,8 +341,8 @@ void InitialDevice()
   Log.setPrefix(printPrefix); // set prefix similar to NLog
   Log.begin(LOG_LEVEL_NOTICE, &Serial);
 
-  queueGetting = xQueueCreate(queueSize, sizeof(String));
-  queueSetting = xQueueCreate(queueSize, sizeof(String));
+  // queueGetting = xQueueCreate(queueSize, sizeof(String));
+  // queueSetting = xQueueCreate(queueSize, sizeof(String));
 
   // Print Logo and device notice
   Serial.println("\n");
@@ -509,47 +353,42 @@ void InitialDevice()
   Serial.println(" | | \\ \\ |__| | |____ \n");
   Serial.println(" |_|  \\_\\____/|______|");
   Serial.println("\n");
-  //Serial.printf("Device notice:");
-  //Serial.printf("Chip Model: %s", ESP.getChipModel());
-  //Serial.printf("Revsion: %d", ESP.getChipRevision());
-  //Serial.printf("MAC: %lu", ESP.getEfuseMac());
-  //Serial.printf("Cores: %d", ESP.getChipCores());
-  //Serial.printf("CpuFreqMHz: %u", ESP.getCpuFreqMHz());
-  //Serial.printf("Chip ID: %u", chipId);
-  //Serial.printf("SDK Version: %s", ESP.getSdkVersion());
-  //Serial.printf("Cycle Count: %u", ESP.getCycleCount());
-  //Serial.printf("Total Heap Size: %u", ESP.getHeapSize());
-  //Serial.printf("Free Heap Size: %u", ESP.getFreeHeap());
-  //Serial.printf("Lowest Level Of Free Heap Since Boot: %u", ESP.getMinFreeHeap());
-  //Serial.printf("Largest Block Of Heap That Can Be Allocated At Once = %u", ESP.getMaxAllocHeap());
-  //Serial.printf("Sketch MD5: %u", ESP.getSketchMD5());
-  //Serial.printf("Sketch Size: %u", ESP.getSketchSize());
-  //Serial.printf("Sketch Remaining Space: %u", ESP.getFreeSketchSpace());
+  // Serial.printf("Device notice:");
+  // Serial.printf("Chip Model: %s", ESP.getChipModel());
+  // Serial.printf("Revsion: %d", ESP.getChipRevision());
+  // Serial.printf("MAC: %lu", ESP.getEfuseMac());
+  // Serial.printf("Cores: %d", ESP.getChipCores());
+  // Serial.printf("CpuFreqMHz: %u", ESP.getCpuFreqMHz());
+  // Serial.printf("Chip ID: %u", chipId);
+  // Serial.printf("SDK Version: %s", ESP.getSdkVersion());
+  // Serial.printf("Cycle Count: %u", ESP.getCycleCount());
+  // Serial.printf("Total Heap Size: %u", ESP.getHeapSize());
+  // Serial.printf("Free Heap Size: %u", ESP.getFreeHeap());
+  // Serial.printf("Lowest Level Of Free Heap Since Boot: %u", ESP.getMinFreeHeap());
+  // Serial.printf("Largest Block Of Heap That Can Be Allocated At Once = %u", ESP.getMaxAllocHeap());
+  // Serial.printf("Sketch MD5: %u", ESP.getSketchMD5());
+  // Serial.printf("Sketch Size: %u", ESP.getSketchSize());
+  // Serial.printf("Sketch Remaining Space: %u", ESP.getFreeSketchSpace());
+
+  Log.notice("Device notice:" CR);
+  Log.notice("Chip Model: %s" CR, ESP.getChipModel());
+  Log.notice("Revsion: %d" CR, ESP.getChipRevision());
+  Log.notice("MAC: %lu" CR, ESP.getEfuseMac());
+  Log.notice("Cores: %d" CR, ESP.getChipCores());
+  Log.notice("CpuFreqMHz: %u" CR, ESP.getCpuFreqMHz());
+  Log.notice("Chip ID: %u" CR, chipId);
+  Log.notice("SDK Version: %s" CR, ESP.getSdkVersion());
+  Log.notice("Cycle Count: %u" CR, ESP.getCycleCount());
+  Log.notice("Total Heap Size: %u" CR, ESP.getHeapSize());
+  Log.notice("Free Heap Size: %u" CR, ESP.getFreeHeap());
+  Log.notice("Lowest Level Of Free Heap Since Boot: %u" CR, ESP.getMinFreeHeap());
+  Log.notice("Largest Block Of Heap That Can Be Allocated At Once = %u" CR, ESP.getMaxAllocHeap());
+  Log.notice("Sketch MD5: %u" CR, ESP.getSketchMD5());
+  Log.notice("Sketch Size: %u" CR, ESP.getSketchSize());
+  Log.notice("Sketch Remaining Space: %u" CR, ESP.getFreeSketchSpace());
 
   attachInterrupt(digitalPinToInterrupt(0), ticktick, HIGH);
   // touchAttachInterrupt(T0, device_switch, TOUCH_THRESHOLD);
-}
-
-void getDown()
-{
-  if (Serial2.available())
-  {
-    char inChar = Serial2.read();
-    inputString += inChar;
-    if (inChar == '\\')
-    {
-      Serial.println(inputString);
-      parseCMD(inputString);
-      Log.notice("recv: %s" CR, inputString.c_str());
-      inputString = "";
-    }
-  }
-
-  else
-  {
-    Serial2.write("get_down\r");
-    Log.notice("query: %s" CR, "get_down");
-  }
 }
 
 void setup()
@@ -565,5 +404,5 @@ void setup()
 void loop()
 {
   getDown();
-  delay(10);
+  delay(60);
 }
