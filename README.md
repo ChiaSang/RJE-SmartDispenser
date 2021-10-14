@@ -1,1 +1,3 @@
-# 米家 IOT 饮水机
+# RJE-SmartDispenser
+
+锐杰尔智能茶吧机
