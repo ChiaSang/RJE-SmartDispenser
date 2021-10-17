@@ -5,7 +5,7 @@
  * Author: Chia Sang
  *
  */
-#include <Ticker.h>
+// #include <Ticker.h>
 #include <Arduino.h>
 #include <ArduinoLog.h>
 #include <CmdParser.hpp>
@@ -14,8 +14,8 @@
 #define TOUCHPIN0 4
 #define TOUCH_THRESHOLD 30
 
-Ticker tickerGetDown;
-Ticker tickerReportTemp;
+// Ticker tickerGetDown;
+// Ticker tickerReportTemp;
 
 CmdParser cmdParser;
 
@@ -25,6 +25,13 @@ int runState = 1;
 int deviceMode = 2;
 int currentTemperature = 26;
 int settingTemperature = 95;
+int reportCount;
+
+unsigned int getDownInterval = 100;
+unsigned int reportInterval = 10000;
+unsigned long previousMillis = 0;
+
+int rFlage = 0;
 int ind1;
 int ind2;
 int ind3;
@@ -122,18 +129,13 @@ void ticktick()
 // Report parameter state task
 void report_state()
 {
-  for (;;)
-  {
-    // settingTemperature = random(25, 101);
-    currentTemperature = random(25, 101);
-    String temperature = String(random(50, 100));
-    String msg = "properties_changed 2 5 " + temperature + "\r";
-    char buffer[msg.length()];
-    msg.toCharArray(buffer, msg.length() + 1);
-    Serial2.write(buffer);
-
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-  }
+  // settingTemperature = random(25, 101);
+  currentTemperature = random(25, 101);
+  String temperature = String(random(50, 100));
+  String msg = "properties_changed 2 5 " + temperature + "\r";
+  char buffer[msg.length()];
+  msg.toCharArray(buffer, msg.length() + 1);
+  Serial2.write(buffer);
 }
 
 String getValue(String data, char separator, int index)
@@ -415,15 +417,33 @@ void InitialDevice()
   // touchAttachInterrupt(T0, device_switch, TOUCH_THRESHOLD);
 }
 
+void tickerCount()
+{
+  reportCount++;
+}
+
 void setup()
 {
   InitialDevice();
-  tickerGetDown.attach_ms(50, getDown);
-  tickerReportTemp.attach_ms(5000, report_state);
+  // tickerGetDown.attach_ms(120, getDown);
+  // tickerReportTemp.attach(1, tickerCount);
+  // tickerReportTemp.attach(5, report_state);
 }
 
 void loop()
 {
-  // getDown();
-  // delay(100);
+  unsigned long currentMillis = millis();
+
+  if (currentMillis - previousMillis >= getDownInterval)
+  {
+    // save the last time you blinked the LED
+    previousMillis = currentMillis;
+    getDown();
+    rFlage += 1;
+  }
+  if (rFlage > 100)
+  {
+    report_state();
+    rFlage = 0;
+  }
 }
