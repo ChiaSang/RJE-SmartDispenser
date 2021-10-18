@@ -101,6 +101,30 @@ void printPrefix(Print *_logOutput, int logLevel)
   // printLogLevel(_logOutput, logLevel);
 }
 
+void longPressAction()
+{
+  // read the state of the switch/button:
+  currentState = digitalRead(BUTTON_PIN);
+
+  if (lastState == HIGH && currentState == LOW) // button is pressed
+    pressedTime = millis();
+  else if (lastState == LOW && currentState == HIGH)
+  { // button is released
+    releasedTime = millis();
+
+    long pressDuration = releasedTime - pressedTime;
+
+    if (pressDuration > LONG_PRESS_TIME)
+    {
+      Serial2.print("restore\r");
+      Log.warning("restore config!" CR);
+    }
+  }
+
+  // save the the last state
+  lastState = currentState;
+}
+
 // ======================================================================
 // Get device state by pressing touch button
 void device_switch()
@@ -344,7 +368,6 @@ void setup()
 
 void loop()
 {
-  currentState = digitalRead(BUTTON_PIN);
   unsigned long currentMillis = millis();
 
   if (currentMillis - getDownPreviousMillis >= getDownInterval)
@@ -365,25 +388,5 @@ void loop()
   {
     reportPreviousMillis = currentMillis;
   }
-
-  // read the state of the switch/button:
-  currentState = digitalRead(BUTTON_PIN);
-
-  if (lastState == HIGH && currentState == LOW) // button is pressed
-    pressedTime = millis();
-  else if (lastState == LOW && currentState == HIGH)
-  { // button is released
-    releasedTime = millis();
-
-    long pressDuration = releasedTime - pressedTime;
-
-    if (pressDuration > LONG_PRESS_TIME)
-    {
-      Serial.println("A long press is detected");
-      Serial2.print("restore\r");
-    }
-  }
-
-  // save the the last state
-  lastState = currentState;
+  longPressAction();
 }
