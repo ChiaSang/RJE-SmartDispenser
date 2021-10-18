@@ -5,7 +5,7 @@
  * Author: Chia Sang
  *
  */
-// #include <Ticker.h>
+
 #include <Arduino.h>
 #include <ArduinoLog.h>
 #include <CmdParser.hpp>
@@ -13,9 +13,6 @@
 
 #define TOUCHPIN0 4
 #define TOUCH_THRESHOLD 30
-
-// Ticker tickerGetDown;
-// Ticker tickerReportTemp;
 
 CmdParser cmdParser;
 
@@ -25,29 +22,14 @@ int runState = 1;
 int deviceMode = 2;
 int currentTemperature = 26;
 int settingTemperature = 95;
-int reportCount;
 
 unsigned int getDownInterval = 100;
 unsigned int reportInterval = 10000;
-unsigned long previousMillis = 0;
+unsigned long getDownPreviousMillis = 0;
+unsigned long reportPreviousMillis = 0;
 
-int rFlage = 0;
-int ind1;
-int ind2;
-int ind3;
-int ind4;
-
-String angle;
-String fuel;
-String speed1;
-String altidude;
-
-// void InitialDevice();
-// void printLogLevel();
-// void printTimestamp();
-// void printPrefix();
-
-//---------------------------------------------------------
+// ======================================================================
+// Log config
 void printTimestamp(Print *_logOutput)
 {
 
@@ -109,6 +91,7 @@ void printPrefix(Print *_logOutput, int logLevel)
   // printLogLevel(_logOutput, logLevel);
 }
 
+// ======================================================================
 // Get device state by pressing touch button
 void device_switch()
 {
@@ -119,6 +102,7 @@ void device_switch()
   }
 }
 
+// ======================================================================
 // Print test message
 void ticktick()
 {
@@ -126,6 +110,7 @@ void ticktick()
   Log.notice("deviceState: %d" CR, runState);
 }
 
+// ======================================================================
 // Report parameter state task
 void report_state()
 {
@@ -138,41 +123,6 @@ void report_state()
   Serial2.write(buffer);
 }
 
-String getValue(String data, char separator, int index)
-{
-  int found = 0;
-  int strIndex[] = {0, -1};
-  int maxIndex = data.length() - 1;
-
-  for (int i = 0; i <= maxIndex && found <= index; i++)
-  {
-    if (data.charAt(i) == separator || i == maxIndex)
-    {
-      found++;
-      strIndex[0] = strIndex[1] + 1;
-      strIndex[1] = (i == maxIndex) ? i + 1 : i;
-    }
-  }
-  return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
-}
-
-void parseCMD(String readString)
-{
-  ind1 = readString.indexOf(' ');                  //finds location of first ,
-  angle = readString.substring(0, ind1);           //captures first data String
-  ind2 = readString.indexOf(' ', ind1 + 1);        //finds location of second ,
-  fuel = readString.substring(ind1 + 1, ind2 + 1); //captures second data String
-  ind3 = readString.indexOf(' ', ind2 + 1);
-  speed1 = readString.substring(ind2 + 1, ind3 + 1);
-  ind4 = readString.indexOf(' ', ind3 + 1);
-  altidude = readString.substring(ind3 + 1);
-
-  Log.notice("命令0: %s" CR, angle);
-  Log.notice("命令1: %s" CR, fuel);
-  Log.notice("命令2: %d" CR, speed1);
-  Log.notice("命令3: %d" CR, altidude);
-}
-
 // ======================================================================
 // Parse command and assign tasks corresponding to commands
 void executeCMD(const char *cmd)
@@ -183,7 +133,7 @@ void executeCMD(const char *cmd)
     const char *siid = cmdParser.getCmdParam(1);
     const char *piid = cmdParser.getCmdParam(2);
 
-    Log.notice(F("Command: %s Param1: %s Param2: %s" CR), cmdParser.getCommand(), siid, piid);
+    Log.notice(F("%s %s %s" CR), cmdParser.getCommand(), siid, piid);
 
     if (cmdParser.equalCommand("get_properties"))
     {
@@ -417,33 +367,32 @@ void InitialDevice()
   // touchAttachInterrupt(T0, device_switch, TOUCH_THRESHOLD);
 }
 
-void tickerCount()
-{
-  reportCount++;
-}
-
 void setup()
 {
   InitialDevice();
-  // tickerGetDown.attach_ms(120, getDown);
-  // tickerReportTemp.attach(1, tickerCount);
-  // tickerReportTemp.attach(5, report_state);
 }
 
 void loop()
 {
   unsigned long currentMillis = millis();
 
-  if (currentMillis - previousMillis >= getDownInterval)
+  if (currentMillis - getDownPreviousMillis >= getDownInterval)
   {
-    // save the last time you blinked the LED
-    previousMillis = currentMillis;
+    getDownPreviousMillis = currentMillis;
     getDown();
-    rFlage += 1;
   }
-  if (rFlage > 100)
+
+  if (currentMillis - reportPreviousMillis >= reportInterval)
   {
+    reportPreviousMillis = currentMillis;
     report_state();
-    rFlage = 0;
+  }
+  else if (currentMillis - getDownPreviousMillis <= 0)
+  {
+    getDownPreviousMillis = currentMillis;
+  }
+  else if (currentMillis - reportPreviousMillis <= 0)
+  {
+    reportPreviousMillis = currentMillis;
   }
 }
