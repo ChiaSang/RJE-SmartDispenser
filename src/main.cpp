@@ -20,11 +20,11 @@ boolean deviceState = 0;
 
 int runState = 1;
 int deviceMode = 2;
-int currentTemperature = 26;
-int settingTemperature = 95;
+int currentTemperature = 0;
+int settingTemperature = 50;
 
 unsigned int getDownInterval = 100;
-unsigned int reportInterval = 10000;
+unsigned int reportInterval = 5000;
 unsigned long getDownPreviousMillis = 0;
 unsigned long reportPreviousMillis = 0;
 
@@ -111,16 +111,13 @@ void ticktick()
 }
 
 // ======================================================================
-// Report parameter state task
+// Report task
 void report_state()
 {
-  // settingTemperature = random(25, 101);
-  currentTemperature = random(25, 101);
-  String temperature = String(random(50, 100));
-  String msg = "properties_changed 2 5 " + temperature + "\r";
-  char buffer[msg.length()];
-  msg.toCharArray(buffer, msg.length() + 1);
-  Serial2.write(buffer);
+  currentTemperature = random(50, 100);
+  String report_msg = "properties_changed 2 5 " + String(currentTemperature) + "\r";
+  Serial2.print(report_msg);
+  Log.notice("%c" CR, report_msg);
 }
 
 // ======================================================================
@@ -144,69 +141,47 @@ void executeCMD(const char *cmd)
 
         case '1':
         {
-          Serial2.write("result 2 1 0 0\r");
+          Serial2.print("result 2 1 0 0\r");
           break;
         }
 
         case '2':
         {
-          if (runState)
-          {
-            Serial2.write("result 2 2 0 1\r");
-          }
-          else
-          {
-            Serial2.write("result 2 2 0 0\r");
-          }
+          String prefix_reply_msg = "result 2 2 0 ";
+          String reply = prefix_reply_msg + String(runState) + "\r";
+          Serial2.print(reply);
           break;
         }
 
         case '3':
         {
-
-          // char msg[] = "result 2 3 0 ";
-          // char c[2];
-          // itoa(runState, c, 10);
-          // // Serial.println(strcat(msg, strcat(c, "\r")));
-          // Serial2.write(strcat(msg, strcat(c, "\r")));
-
-          Serial2.write("result 2 3 0 1\r");
+          String prefix_reply_msg = "result 2 3 0 ";
+          String reply = prefix_reply_msg + String(runState) + "\r";
+          Serial2.print(reply);
           break;
         }
 
         case '4':
         {
-
-          // char msg[] = "result 2 4 0 ";
-          // char c[2];
-          // itoa(deviceMode, c, 10);
-          // Serial2.write(strcat(msg, strcat(c, "\r")));
-
-          Serial2.write("result 2 4 0 1\r");
+          String prefix_reply_msg = "result 2 4 0 ";
+          String reply = prefix_reply_msg + String(deviceMode) + "\r";
+          Serial2.print(reply);
           break;
         }
 
         case '5':
         {
-
-          // char msg[] = "result 2 5 0 ";
-          // char c[4];
-          // itoa(currentTemperature, c, 10);
-          // Serial2.write(strcat(msg, strcat(c, "\r")));
-
-          Serial2.write("result 2 5 0 45\r");
+          String prefix_reply_msg = "result 2 5 0 ";
+          String reply = prefix_reply_msg + String(currentTemperature) + "\r";
+          Serial2.print(reply);
           break;
         }
 
         case '6':
         {
-
-          // char msg[] = "result 2 6 0 ";
-          // char c[4];
-          // itoa(settingTemperature, c, 10);
-          // Serial2.write(strcat(msg, strcat(c, "\r")));
-
-          Serial2.write("result 2 6 0 68\r");
+          String prefix_reply_msg = "result 2 6 0 ";
+          String reply = prefix_reply_msg + String(settingTemperature) + "\r";
+          Serial2.print(reply);
           break;
         }
         default:
@@ -227,8 +202,10 @@ void executeCMD(const char *cmd)
         {
           runState = *val - '0';
           Log.notice("设备状态: %d" CR, runState);
-          Serial2.write("result 2 2 0\r");
-          Serial2.write("properties_changed 2 2 1\r");
+          Serial2.print("result 2 2 0\r");
+          String prefix_reply_msg = "properties_changed 2 2 ";
+          String reply = prefix_reply_msg + String(runState) + "\r";
+          Serial2.print(reply);
           break;
         }
 
@@ -236,8 +213,10 @@ void executeCMD(const char *cmd)
         {
           deviceMode = *val - '0';
           Log.notice("设备模式: %d" CR, deviceMode);
-          Serial2.write("result 2 4 0\r");
-          Serial2.write("properties_changed 2 2 2\r");
+          Serial2.print("result 2 4 0\r");
+          String prefix_reply_msg = "properties_changed 2 4 ";
+          String reply = prefix_reply_msg + String(deviceMode) + "\r";
+          Serial2.print(reply);
           break;
         }
 
@@ -245,8 +224,10 @@ void executeCMD(const char *cmd)
         {
           settingTemperature = atoi(val);
           Log.notice("设定温度: %d" CR, settingTemperature);
-          Serial2.write("result 2 6 0\r");
-          Serial2.write("properties_changed 2 6 49\r");
+          Serial2.print("result 2 6 0\r");
+          String prefix_reply_msg = "properties_changed 2 6 ";
+          String reply = prefix_reply_msg + String(settingTemperature) + "\r";
+          Serial2.print(reply);
           break;
         }
 
@@ -258,7 +239,7 @@ void executeCMD(const char *cmd)
 
     else
     {
-      Log.verbose("Command: %s No Action" CR, cmd);
+      Log.notice(F("%s %s %s none" CR), cmdParser.getCommand(), siid, piid);
     }
   }
 }
@@ -278,12 +259,10 @@ void getDown()
         inputString += inChar;
       }
     }
-    // cmd = &inputString[0];
     inputString.trim();
     String gcmd = inputString.substring(5);
     if (gcmd != "none")
     {
-      // parseCMD(gcmd);
       executeCMD(inputString.substring(5).c_str());
       Log.verbose("recv_p: %s" CR, inputString.substring(5).c_str());
     }
@@ -291,12 +270,10 @@ void getDown()
     {
       Log.verbose("recv: %s" CR, inputString.c_str());
     }
-    // char buffer[inputString.length()];
-    // inputString.toCharArray(buffer, inputString.length());
   }
   else
   {
-    Serial2.write("get_down\r");
+    Serial2.print("get_down\r");
     Log.verbose("query: %s" CR, "get_down");
   }
 }
@@ -317,9 +294,6 @@ void InitialDevice()
   Log.setPrefix(printPrefix); // set prefix similar to NLog
   Log.begin(LOG_LEVEL_NOTICE, &Serial);
 
-  // queueGetting = xQueueCreate(queueSize, sizeof(String));
-  // queueSetting = xQueueCreate(queueSize, sizeof(String));
-
   // Print Logo and device notice
   Serial.println("\n");
   Serial.println("  _____      _ ______ \n");
@@ -329,22 +303,6 @@ void InitialDevice()
   Serial.println(" | | \\ \\ |__| | |____ \n");
   Serial.println(" |_|  \\_\\____/|______|");
   Serial.println("\n");
-  // Serial.printf("Device notice:");
-  // Serial.printf("Chip Model: %s", ESP.getChipModel());
-  // Serial.printf("Revsion: %d", ESP.getChipRevision());
-  // Serial.printf("MAC: %lu", ESP.getEfuseMac());
-  // Serial.printf("Cores: %d", ESP.getChipCores());
-  // Serial.printf("CpuFreqMHz: %u", ESP.getCpuFreqMHz());
-  // Serial.printf("Chip ID: %u", chipId);
-  // Serial.printf("SDK Version: %s", ESP.getSdkVersion());
-  // Serial.printf("Cycle Count: %u", ESP.getCycleCount());
-  // Serial.printf("Total Heap Size: %u", ESP.getHeapSize());
-  // Serial.printf("Free Heap Size: %u", ESP.getFreeHeap());
-  // Serial.printf("Lowest Level Of Free Heap Since Boot: %u", ESP.getMinFreeHeap());
-  // Serial.printf("Largest Block Of Heap That Can Be Allocated At Once = %u", ESP.getMaxAllocHeap());
-  // Serial.printf("Sketch MD5: %u", ESP.getSketchMD5());
-  // Serial.printf("Sketch Size: %u", ESP.getSketchSize());
-  // Serial.printf("Sketch Remaining Space: %u", ESP.getFreeSketchSpace());
 
   Log.notice("Device notice:" CR);
   Log.notice("Chip Model: %s" CR, ESP.getChipModel());
@@ -381,7 +339,6 @@ void loop()
     getDownPreviousMillis = currentMillis;
     getDown();
   }
-
   if (currentMillis - reportPreviousMillis >= reportInterval)
   {
     reportPreviousMillis = currentMillis;
