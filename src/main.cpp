@@ -28,6 +28,16 @@ unsigned int reportInterval = 5000;
 unsigned long getDownPreviousMillis = 0;
 unsigned long reportPreviousMillis = 0;
 
+// constants won't change. They're used here to set pin numbers:
+const int BUTTON_PIN = 0;         // the number of the pushbutton pin
+const int LONG_PRESS_TIME = 5000; // 1000 milliseconds
+
+// Variables will change:
+int lastState = LOW; // the previous state from the input pin
+int currentState;    // the current reading from the input pin
+unsigned long pressedTime = 0;
+unsigned long releasedTime = 0;
+
 // ======================================================================
 // Log config
 void printTimestamp(Print *_logOutput)
@@ -117,7 +127,7 @@ void report_state()
   currentTemperature = random(50, 100);
   String report_msg = "properties_changed 2 5 " + String(currentTemperature) + "\r";
   Serial2.print(report_msg);
-  Log.notice("%c" CR, report_msg);
+  Log.notice("%c" CR, report_msg.c_str());
 }
 
 // ======================================================================
@@ -294,6 +304,8 @@ void InitialDevice()
   Log.setPrefix(printPrefix); // set prefix similar to NLog
   Log.begin(LOG_LEVEL_NOTICE, &Serial);
 
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
   // Print Logo and device notice
   Serial.println("\n");
   Serial.println("  _____      _ ______ \n");
@@ -321,7 +333,7 @@ void InitialDevice()
   Log.notice("Sketch Size: %u" CR, ESP.getSketchSize());
   Log.notice("Sketch Remaining Space: %u" CR, ESP.getFreeSketchSpace());
 
-  attachInterrupt(digitalPinToInterrupt(0), ticktick, HIGH);
+  // attachInterrupt(digitalPinToInterrupt(0), ticktick, HIGH);
   // touchAttachInterrupt(T0, device_switch, TOUCH_THRESHOLD);
 }
 
@@ -332,6 +344,7 @@ void setup()
 
 void loop()
 {
+  currentState = digitalRead(BUTTON_PIN);
   unsigned long currentMillis = millis();
 
   if (currentMillis - getDownPreviousMillis >= getDownInterval)
@@ -352,4 +365,25 @@ void loop()
   {
     reportPreviousMillis = currentMillis;
   }
+
+  // read the state of the switch/button:
+  currentState = digitalRead(BUTTON_PIN);
+
+  if (lastState == HIGH && currentState == LOW) // button is pressed
+    pressedTime = millis();
+  else if (lastState == LOW && currentState == HIGH)
+  { // button is released
+    releasedTime = millis();
+
+    long pressDuration = releasedTime - pressedTime;
+
+    if (pressDuration > LONG_PRESS_TIME)
+    {
+      Serial.println("A long press is detected");
+      Serial2.print("restore\r");
+    }
+  }
+
+  // save the the last state
+  lastState = currentState;
 }
