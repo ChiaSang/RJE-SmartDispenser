@@ -19,6 +19,7 @@ CmdParser cmdParser;
 boolean deviceState = 0;
 
 int runState = 1;
+int relayState = 0;
 int deviceMode = 2;
 int currentTemperature = 0;
 int settingTemperature = 50;
@@ -187,14 +188,6 @@ void executeCMD(const char *cmd)
           break;
         }
 
-        case '3':
-        {
-          String prefix_reply_msg = "result 2 3 0 ";
-          String reply = prefix_reply_msg + String(runState) + "\r";
-          Serial2.print(reply);
-          break;
-        }
-
         case '4':
         {
           String prefix_reply_msg = "result 2 4 0 ";
@@ -218,6 +211,15 @@ void executeCMD(const char *cmd)
           Serial2.print(reply);
           break;
         }
+
+        case '7':
+        {
+          String prefix_reply_msg = "result 2 7 0 ";
+          String reply = prefix_reply_msg + String(relayState) + "\r";
+          Serial2.print(reply);
+          break;
+        }
+
         default:
           break;
         }
@@ -261,6 +263,17 @@ void executeCMD(const char *cmd)
           Serial2.print("result 2 6 0\r");
           String prefix_reply_msg = "properties_changed 2 6 ";
           String reply = prefix_reply_msg + String(settingTemperature) + "\r";
+          Serial2.print(reply);
+          break;
+        }
+
+        case '7':
+        {
+          relayState = *val - '0';
+          Log.notice("设定继电器状态: %d" CR, relayState);
+          Serial2.print("result 2 7 0\r");
+          String prefix_reply_msg = "properties_changed 2 7 ";
+          String reply = prefix_reply_msg + String(relayState) + "\r";
           Serial2.print(reply);
           break;
         }
