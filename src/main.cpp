@@ -18,6 +18,12 @@ CmdParser cmdParser;
 
 boolean deviceState = 0;
 
+String devicSwitch = "true";
+String warmingSwitch = "true";
+String heatingSwitch = "true";
+String hRelay = "true";
+String wRelay = "true";
+
 int runState = 1;
 int relayState = 0;
 int deviceMode = 2;
@@ -183,7 +189,15 @@ void executeCMD(const char *cmd)
         case '2':
         {
           String prefix_reply_msg = "result 2 2 0 ";
-          String reply = prefix_reply_msg + String(runState) + "\r";
+          String reply = prefix_reply_msg + devicSwitch + "\r";
+          Serial2.print(reply);
+          break;
+        }
+
+        case '3':
+        {
+          String prefix_reply_msg = "result 2 3 0 ";
+          String reply = prefix_reply_msg + warmingSwitch + "\r";
           Serial2.print(reply);
           break;
         }
@@ -191,7 +205,7 @@ void executeCMD(const char *cmd)
         case '4':
         {
           String prefix_reply_msg = "result 2 4 0 ";
-          String reply = prefix_reply_msg + String(deviceMode) + "\r";
+          String reply = prefix_reply_msg + heatingSwitch + "\r";
           Serial2.print(reply);
           break;
         }
@@ -199,7 +213,7 @@ void executeCMD(const char *cmd)
         case '5':
         {
           String prefix_reply_msg = "result 2 5 0 ";
-          String reply = prefix_reply_msg + String(currentTemperature) + "\r";
+          String reply = prefix_reply_msg + hRelay + "\r";
           Serial2.print(reply);
           break;
         }
@@ -207,7 +221,7 @@ void executeCMD(const char *cmd)
         case '6':
         {
           String prefix_reply_msg = "result 2 6 0 ";
-          String reply = prefix_reply_msg + String(settingTemperature) + "\r";
+          String reply = prefix_reply_msg + wRelay + "\r";
           Serial2.print(reply);
           break;
         }
@@ -215,7 +229,15 @@ void executeCMD(const char *cmd)
         case '7':
         {
           String prefix_reply_msg = "result 2 7 0 ";
-          String reply = prefix_reply_msg + String(relayState) + "\r";
+          String reply = prefix_reply_msg + String(settingTemperature) + "\r";
+          Serial2.print(reply);
+          break;
+        }
+
+        case '8':
+        {
+          String prefix_reply_msg = "result 2 8 0 ";
+          String reply = prefix_reply_msg + String(currentTemperature) + "\r";
           Serial2.print(reply);
           break;
         }
@@ -236,44 +258,66 @@ void executeCMD(const char *cmd)
 
         case '2':
         {
-          runState = *val - '0';
-          Log.notice("设备状态: %d" CR, runState);
+          devicSwitch = val;
+          Log.notice("开关: %s" CR, devicSwitch);
           Serial2.print("result 2 2 0\r");
           String prefix_reply_msg = "properties_changed 2 2 ";
-          String reply = prefix_reply_msg + String(runState) + "\r";
+          String reply = prefix_reply_msg + devicSwitch + "\r";
+          Serial2.print(reply);
+          break;
+        }
+
+        case '3':
+        {
+          warmingSwitch = val;
+          Log.notice("保温开关: %s" CR, warmingSwitch);
+          Serial2.print("result 2 3 0\r");
+          String prefix_reply_msg = "properties_changed 2 3 ";
+          String reply = prefix_reply_msg + warmingSwitch + "\r";
           Serial2.print(reply);
           break;
         }
 
         case '4':
         {
-          deviceMode = *val - '0';
-          Log.notice("设备模式: %d" CR, deviceMode);
+          heatingSwitch = val;
+          Log.notice("加热开关: %s" CR, heatingSwitch);
           Serial2.print("result 2 4 0\r");
           String prefix_reply_msg = "properties_changed 2 4 ";
-          String reply = prefix_reply_msg + String(deviceMode) + "\r";
+          String reply = prefix_reply_msg + heatingSwitch + "\r";
+          Serial2.print(reply);
+          break;
+        }
+
+        case '5':
+        {
+          hRelay = val;
+          Log.notice("热加水: %s" CR, hRelay);
+          Serial2.print("result 2 5 0\r");
+          String prefix_reply_msg = "properties_changed 2 5 ";
+          String reply = prefix_reply_msg + hRelay + "\r";
           Serial2.print(reply);
           break;
         }
 
         case '6':
         {
-          settingTemperature = atoi(val);
-          Log.notice("设定温度: %d" CR, settingTemperature);
+          wRelay = val;
+          Log.notice("冷加水: %s" CR, wRelay);
           Serial2.print("result 2 6 0\r");
           String prefix_reply_msg = "properties_changed 2 6 ";
-          String reply = prefix_reply_msg + String(settingTemperature) + "\r";
+          String reply = prefix_reply_msg + wRelay + "\r";
           Serial2.print(reply);
           break;
         }
 
         case '7':
         {
-          relayState = *val - '0';
-          Log.notice("设定继电器状态: %d" CR, relayState);
+          settingTemperature = atoi(val);
+          Log.notice("设定温度: %d" CR, settingTemperature);
           Serial2.print("result 2 7 0\r");
           String prefix_reply_msg = "properties_changed 2 7 ";
-          String reply = prefix_reply_msg + String(relayState) + "\r";
+          String reply = prefix_reply_msg + String(settingTemperature) + "\r";
           Serial2.print(reply);
           break;
         }
