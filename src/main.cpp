@@ -7,28 +7,39 @@
  */
 
 #include <Arduino.h>
+#include <HardwareSerial.h>
 #include <ArduinoLog.h>
-#include <CmdParser.hpp>
+#include <CommandParser.h>
 #include "Esp.h"
 
 #define TOUCHPIN0 4
 #define TOUCH_THRESHOLD 30
 
-CmdParser cmdParser;
+HardwareSerial rSerial(1);
+typedef CommandParser<> MyCommandParser;
+MyCommandParser parser;
 
-boolean deviceState = 0;
+byte openRJE[] = {0xA5, 0xFA, 0x00, 0x81, 0x01, 0x00, 0x02, 0x21, 0xFB};
+byte closeRJE[] = {0xA5, 0xFA, 0x00, 0x81, 0x02, 0x00, 0x02, 0x22, 0xFB};
+byte temp50[] = {0xA5, 0xFA, 0x00, 0x81, 0x19, 0x00, 0x02, 0x39, 0xFB};
+byte temp55[] = {0xA5, 0xFA, 0x00, 0x81, 0x1A, 0x00, 0x02, 0x3A, 0xFB};
+byte temp60[] = {0xA5, 0xFA, 0x00, 0x81, 0x1B, 0x00, 0x02, 0x3B, 0xFB};
+byte temp65[] = {0xA5, 0xFA, 0x00, 0x81, 0x1C, 0x00, 0x02, 0x3C, 0xFB};
+byte temp70[] = {0xA5, 0xFA, 0x00, 0x81, 0x1D, 0x00, 0x02, 0x3D, 0xFB};
+byte temp75[] = {0xA5, 0xFA, 0x00, 0x81, 0x1E, 0x00, 0x02, 0x3E, 0xFB};
+byte temp80[] = {0xA5, 0xFA, 0x00, 0x81, 0x1F, 0x00, 0x02, 0x3F, 0xFB};
+byte temp85[] = {0xA5, 0xFA, 0x00, 0x81, 0x20, 0x00, 0x02, 0x40, 0xFB};
+byte temp90[] = {0xA5, 0xFA, 0x00, 0x81, 0x21, 0x00, 0x02, 0x41, 0xFB};
+byte temp95[] = {0xA5, 0xFA, 0x00, 0x81, 0x22, 0x00, 0x02, 0x42, 0xFB};
+byte temp100[] = {0xA5, 0xFA, 0x00, 0x81, 0x23, 0x00, 0x02, 0x43, 0xFB};
 
-String devicSwitch = "true";
-String warmingSwitch = "true";
-String heatingSwitch = "true";
-String hRelay = "true";
-String wRelay = "true";
-
-int runState = 1;
-int relayState = 0;
-int deviceMode = 2;
 int currentTemperature = 0;
 int settingTemperature = 50;
+int deviceSW = 0;
+int warmingSW = 0;
+int heatingSW = 0;
+int hRelaySW = 0;
+int wRelaySW = 0;
 
 unsigned int getDownInterval = 100;
 unsigned int reportInterval = 5000;
@@ -138,8 +149,6 @@ void device_switch()
 {
   if (TOUCH_THRESHOLD > touchRead(4))
   {
-    deviceState = !deviceState;
-    Log.verbose("deviceState: %T", deviceState);
   }
 }
 
@@ -147,8 +156,6 @@ void device_switch()
 // Print test message
 void ticktick()
 {
-  runState = !runState;
-  Log.notice("deviceState: %d" CR, runState);
 }
 
 // ======================================================================
@@ -158,179 +165,190 @@ void report_state()
   currentTemperature = random(50, 100);
   String report_msg = "properties_changed 2 5 " + String(currentTemperature) + "\r";
   Serial2.print(report_msg);
-  Log.notice("%s" CR, report_msg.c_str());
+  Log.notice("send: %s" CR, report_msg.c_str());
 }
 
 // ======================================================================
-// Parse command and assign tasks corresponding to commands
-void executeCMD(const char *cmd)
+// command parse function
+void cmd_ok(MyCommandParser::Argument *args, char *response)
 {
-  if (cmdParser.parseCmd((char *)cmd) != CMDPARSER_ERROR)
+  Log.notice("recv: ok" CR);
+}
+
+void cmd_none(MyCommandParser::Argument *args, char *response)
+{
+  Log.verbose("recv: none" CR);
+}
+
+void cmd_error(MyCommandParser::Argument *args, char *response)
+{
+  Log.notice("recv: error" CR);
+}
+
+void cmd_get(MyCommandParser::Argument *args, char *response)
+{
+  Log.notice("recv: get %d %d" CR, (int32_t)args[0].asInt64, (int32_t)args[1].asInt64);
+
+  if ((int32_t)args[0].asInt64 == 2)
   {
-    // const size_t count = cmdParser.getParamCount();
-    const char *siid = cmdParser.getCmdParam(1);
-    const char *piid = cmdParser.getCmdParam(2);
-
-    Log.notice(F("%s %s %s" CR), cmdParser.getCommand(), siid, piid);
-
-    if (cmdParser.equalCommand("get_properties"))
+    switch ((int32_t)args[1].asInt64)
     {
-      if (*siid == '2')
-      {
-        switch (*piid)
-        {
 
-        case '1':
-        {
-          Serial2.print("result 2 1 0 0\r");
-          break;
-        }
-
-        case '2':
-        {
-          String prefix_reply_msg = "result 2 2 0 ";
-          String reply = prefix_reply_msg + devicSwitch + "\r";
-          Serial2.print(reply);
-          break;
-        }
-
-        case '3':
-        {
-          String prefix_reply_msg = "result 2 3 0 ";
-          String reply = prefix_reply_msg + warmingSwitch + "\r";
-          Serial2.print(reply);
-          break;
-        }
-
-        case '4':
-        {
-          String prefix_reply_msg = "result 2 4 0 ";
-          String reply = prefix_reply_msg + heatingSwitch + "\r";
-          Serial2.print(reply);
-          break;
-        }
-
-        case '5':
-        {
-          String prefix_reply_msg = "result 2 5 0 ";
-          String reply = prefix_reply_msg + hRelay + "\r";
-          Serial2.print(reply);
-          break;
-        }
-
-        case '6':
-        {
-          String prefix_reply_msg = "result 2 6 0 ";
-          String reply = prefix_reply_msg + wRelay + "\r";
-          Serial2.print(reply);
-          break;
-        }
-
-        case '7':
-        {
-          String prefix_reply_msg = "result 2 7 0 ";
-          String reply = prefix_reply_msg + String(settingTemperature) + "\r";
-          Serial2.print(reply);
-          break;
-        }
-
-        case '8':
-        {
-          String prefix_reply_msg = "result 2 8 0 ";
-          String reply = prefix_reply_msg + String(currentTemperature) + "\r";
-          Serial2.print(reply);
-          break;
-        }
-
-        default:
-          break;
-        }
-      }
+    case 1:
+    {
+      Serial2.print("result 2 1 0 0\r");
+      break;
     }
 
-    else if (cmdParser.equalCommand("set_properties"))
+    case 2:
     {
-      const char *val = cmdParser.getCmdParam(3);
-      if (*siid == '2')
-      {
-        switch (*piid)
-        {
-
-        case '2':
-        {
-          devicSwitch = val;
-          Log.notice("开关: %s" CR, devicSwitch);
-          Serial2.print("result 2 2 0\r");
-          String prefix_reply_msg = "properties_changed 2 2 ";
-          String reply = prefix_reply_msg + devicSwitch + "\r";
-          Serial2.print(reply);
-          break;
-        }
-
-        case '3':
-        {
-          warmingSwitch = val;
-          Log.notice("保温开关: %s" CR, warmingSwitch);
-          Serial2.print("result 2 3 0\r");
-          String prefix_reply_msg = "properties_changed 2 3 ";
-          String reply = prefix_reply_msg + warmingSwitch + "\r";
-          Serial2.print(reply);
-          break;
-        }
-
-        case '4':
-        {
-          heatingSwitch = val;
-          Log.notice("加热开关: %s" CR, heatingSwitch);
-          Serial2.print("result 2 4 0\r");
-          String prefix_reply_msg = "properties_changed 2 4 ";
-          String reply = prefix_reply_msg + heatingSwitch + "\r";
-          Serial2.print(reply);
-          break;
-        }
-
-        case '5':
-        {
-          hRelay = val;
-          Log.notice("热加水: %s" CR, hRelay);
-          Serial2.print("result 2 5 0\r");
-          String prefix_reply_msg = "properties_changed 2 5 ";
-          String reply = prefix_reply_msg + hRelay + "\r";
-          Serial2.print(reply);
-          break;
-        }
-
-        case '6':
-        {
-          wRelay = val;
-          Log.notice("冷加水: %s" CR, wRelay);
-          Serial2.print("result 2 6 0\r");
-          String prefix_reply_msg = "properties_changed 2 6 ";
-          String reply = prefix_reply_msg + wRelay + "\r";
-          Serial2.print(reply);
-          break;
-        }
-
-        case '7':
-        {
-          settingTemperature = atoi(val);
-          Log.notice("设定温度: %d" CR, settingTemperature);
-          Serial2.print("result 2 7 0\r");
-          String prefix_reply_msg = "properties_changed 2 7 ";
-          String reply = prefix_reply_msg + String(settingTemperature) + "\r";
-          Serial2.print(reply);
-          break;
-        }
-
-        default:
-          break;
-        }
-      }
+      String prefix_reply_msg = "result 2 2 0 ";
+      String reply = prefix_reply_msg + String(deviceSW) + "\r";
+      Serial2.print(reply);
+      break;
     }
 
-    else
+    case 3:
     {
-      Log.notice(F("%s %s %s none" CR), cmdParser.getCommand(), siid, piid);
+      String prefix_reply_msg = "result 2 3 0 ";
+      String reply = prefix_reply_msg + String(warmingSW) + "\r";
+      Serial2.print(reply);
+      break;
+    }
+
+    case 4:
+    {
+      String prefix_reply_msg = "result 2 4 0 ";
+      String reply = prefix_reply_msg + String(heatingSW) + "\r";
+      Serial2.print(reply);
+      break;
+    }
+
+    case 5:
+    {
+      String prefix_reply_msg = "result 2 5 0 ";
+      String reply = prefix_reply_msg + String(hRelaySW) + "\r";
+      Serial2.print(reply);
+      break;
+    }
+
+    case 6:
+    {
+      String prefix_reply_msg = "result 2 6 0 ";
+      String reply = prefix_reply_msg + String(wRelaySW) + "\r";
+      Serial2.print(reply);
+      break;
+    }
+
+    case 7:
+    {
+      String prefix_reply_msg = "result 2 7 0 ";
+      String reply = prefix_reply_msg + String(settingTemperature) + "\r";
+      Serial2.print(reply);
+      break;
+    }
+
+    case 8:
+    {
+      String prefix_reply_msg = "result 2 8 0 ";
+      String reply = prefix_reply_msg + String(currentTemperature) + "\r";
+      Serial2.print(reply);
+      break;
+    }
+
+    default:
+      break;
+    }
+  }
+}
+
+void cmd_set(MyCommandParser::Argument *args, char *response)
+{
+  Log.notice("recv: set %d %d %d" CR, (int32_t)args[0].asInt64, (int32_t)args[1].asInt64, (int32_t)args[2].asInt64);
+
+  if ((int32_t)args[0].asInt64 == 2)
+  {
+    switch ((int32_t)args[1].asInt64)
+    {
+
+    case 2:
+    {
+      deviceSW = (int32_t)args[2].asInt64;
+      Log.notice("开关: %d" CR, deviceSW);
+      Serial2.print("result 2 2 0\r");
+      String prefix_reply_msg = "properties_changed 2 2 ";
+      String reply = prefix_reply_msg + String(deviceSW) + "\r";
+      Serial2.print(reply);
+
+      if (deviceSW == 1)
+      {
+        rSerial.write(openRJE, sizeof(openRJE));
+      }
+      else
+      {
+        rSerial.write(closeRJE, sizeof(closeRJE));
+      }
+
+      break;
+    }
+
+    case 3:
+    {
+      warmingSW = (int32_t)args[2].asInt64;
+      Log.notice("保温开关: %d" CR, warmingSW);
+      Serial2.print("result 2 3 0\r");
+      String prefix_reply_msg = "properties_changed 2 3 ";
+      String reply = prefix_reply_msg + String(warmingSW) + "\r";
+      Serial2.print(reply);
+      break;
+    }
+
+    case 4:
+    {
+      heatingSW = (int32_t)args[2].asInt64;
+      Log.notice("加热开关: %d" CR, heatingSW);
+      Serial2.print("result 2 4 0\r");
+      String prefix_reply_msg = "properties_changed 2 4 ";
+      String reply = prefix_reply_msg + String(heatingSW) + "\r";
+      Serial2.print(reply);
+      break;
+    }
+
+    case 5:
+    {
+      hRelaySW = (int32_t)args[2].asInt64;
+      Log.notice("热加水: %d" CR, hRelaySW);
+      Serial2.print("result 2 5 0\r");
+      String prefix_reply_msg = "properties_changed 2 5 ";
+      String reply = prefix_reply_msg + String(hRelaySW) + "\r";
+      Serial2.print(reply);
+      break;
+    }
+
+    case 6:
+    {
+      wRelaySW = (int32_t)args[2].asInt64;
+      Log.notice("冷加水: %d" CR, wRelaySW);
+      Serial2.print("result 2 6 0\r");
+      String prefix_reply_msg = "properties_changed 2 6 ";
+      String reply = prefix_reply_msg + String(wRelaySW) + "\r";
+      Serial2.print(reply);
+      break;
+    }
+
+    case 7:
+    {
+      settingTemperature = (int32_t)args[2].asInt64;
+      Log.notice("设定温度: %d" CR, settingTemperature);
+      Serial2.print("result 2 7 0\r");
+      String prefix_reply_msg = "properties_changed 2 7 ";
+      String reply = prefix_reply_msg + String(settingTemperature) + "\r";
+      Serial2.print(reply);
+      break;
+    }
+
+    default:
+      break;
     }
   }
 }
@@ -339,29 +357,31 @@ void executeCMD(const char *cmd)
 // Loop getDown command and receive acknowledge message
 void getDown()
 {
-  String inputString = "";
   if (Serial2.available())
   {
-    while (Serial2.available())
+    char line[32];
+    size_t lineLength = Serial2.readBytesUntil('\r', line, 31);
+    line[lineLength] = '\0';
+    char cmd[32];
+
+    if (strlen(line) > 10)
     {
-      char inChar = (char)Serial2.read();
-      if (inChar != '\\')
-      {
-        inputString += inChar;
-      }
+      // 截取down后到命令，重组命令字符串数组
+      int cmdlen = strlen(line) - 5;
+      strncpy(cmd, line + 5, cmdlen);
+      cmd[cmdlen] = '\0';
+      // Log.notice("slice: %d - total: %d cpy: %s" CR, cmdlen, strlen(line), cmd);
+      char response[MyCommandParser::MAX_RESPONSE_SIZE];
+      parser.processCommand(cmd, response);
     }
-    inputString.trim();
-    String gcmd = inputString.substring(5);
-    if (gcmd != "none")
+
+    if (strlen(line) <= 10)
     {
-      executeCMD(inputString.substring(5).c_str());
-      Log.verbose("recv_p: %s" CR, inputString.substring(5).c_str());
-    }
-    else
-    {
-      Log.verbose("recv: %s" CR, inputString.c_str());
+      char response[MyCommandParser::MAX_RESPONSE_SIZE];
+      parser.processCommand(line, response);
     }
   }
+
   else
   {
     Serial2.print("get_down\r");
@@ -381,6 +401,13 @@ void InitialDevice()
 
   Serial.begin(115200);
   Serial2.begin(115200);
+  rSerial.begin(9600, SERIAL_8N1, 5, 18);
+
+  parser.registerCommand("ok", "", &cmd_ok);
+  parser.registerCommand("none", "", &cmd_none);
+  parser.registerCommand("error", "", &cmd_error);
+  parser.registerCommand("get_properties", "ii", &cmd_get);
+  parser.registerCommand("set_properties", "iii", &cmd_set);
 
   Log.setPrefix(printPrefix); // set prefix similar to NLog
   Log.begin(LOG_LEVEL_NOTICE, &Serial);
@@ -389,14 +416,14 @@ void InitialDevice()
 
   // Print Logo and device notice
   Serial.println("\n");
-  Serial.println("  _____      _ ______ \n");
-  Serial.println(" |  __ \\    | |  ____|\n");
-  Serial.println(" | |__) |   | | |__   \n");
-  Serial.println(" |  _  /_   | |  __|  \n");
-  Serial.println(" | | \\ \\ |__| | |____ \n");
-  Serial.println(" |_|  \\_\\____/|______|");
+  Serial.println("######        # #######");
+  Serial.println("#     #       # #      ");
+  Serial.println("#     #       # #      ");
+  Serial.println("######        # #####  ");
+  Serial.println("#   #   #     # #      ");
+  Serial.println("#    #  #     # #      ");
+  Serial.println("#     #  #####  #######");
   Serial.println("\n");
-
   Log.notice("Device notice:" CR);
   Log.notice("Chip Model: %s" CR, ESP.getChipModel());
   Log.notice("Revsion: %d" CR, ESP.getChipRevision());
@@ -405,14 +432,14 @@ void InitialDevice()
   Log.notice("CpuFreqMHz: %u" CR, ESP.getCpuFreqMHz());
   Log.notice("Chip ID: %u" CR, chipId);
   Log.notice("SDK Version: %s" CR, ESP.getSdkVersion());
-  Log.notice("Cycle Count: %u" CR, ESP.getCycleCount());
-  Log.notice("Total Heap Size: %u" CR, ESP.getHeapSize());
-  Log.notice("Free Heap Size: %u" CR, ESP.getFreeHeap());
-  Log.notice("Lowest Level Of Free Heap Since Boot: %u" CR, ESP.getMinFreeHeap());
-  Log.notice("Largest Block Of Heap That Can Be Allocated At Once = %u" CR, ESP.getMaxAllocHeap());
-  Log.notice("Sketch MD5: %u" CR, ESP.getSketchMD5());
-  Log.notice("Sketch Size: %u" CR, ESP.getSketchSize());
-  Log.notice("Sketch Remaining Space: %u" CR, ESP.getFreeSketchSpace());
+  // Log.notice("Cycle Count: %u" CR, ESP.getCycleCount());
+  // Log.notice("Total Heap Size: %u" CR, ESP.getHeapSize());
+  // Log.notice("Free Heap Size: %u" CR, ESP.getFreeHeap());
+  // Log.notice("Lowest Level Of Free Heap Since Boot: %u" CR, ESP.getMinFreeHeap());
+  // Log.notice("Largest Block Of Heap That Can Be Allocated At Once = %u" CR, ESP.getMaxAllocHeap());
+  // Log.notice("Sketch MD5: %u" CR, ESP.getSketchMD5());
+  // Log.notice("Sketch Size: %u" CR, ESP.getSketchSize());
+  // Log.notice("Sketch Remaining Space: %u" CR, ESP.getFreeSketchSpace());
 
   // attachInterrupt(digitalPinToInterrupt(0), ticktick, HIGH);
   // touchAttachInterrupt(T0, device_switch, TOUCH_THRESHOLD);
