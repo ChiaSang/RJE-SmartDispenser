@@ -163,7 +163,7 @@ void ticktick()
 void report_state()
 {
   currentTemperature = random(50, 100);
-  String report_msg = "properties_changed 2 5 " + String(currentTemperature) + "\r";
+  String report_msg = "properties_changed 2 8 " + String(currentTemperature) + "\r";
   Serial2.print(report_msg);
   Log.notice("send: %s" CR, report_msg.c_str());
 }
