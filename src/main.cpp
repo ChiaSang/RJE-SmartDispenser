@@ -390,6 +390,18 @@ void getDown()
 }
 
 // ======================================================================
+// Loop getDown command and receive acknowledge message
+void parseHEXCommand()
+{
+  String hex_cmd = "";
+  while (rSerial.available())
+  {
+    // hex_cmd += rSerial.read();
+    Log.notice("HEX Command: %X" CR, rSerial.read());
+  }
+}
+
+// ======================================================================
 // Initial device configuration
 void InitialDevice()
 {
@@ -473,4 +485,5 @@ void loop()
     reportPreviousMillis = currentMillis;
   }
   longPressAction();
+  parseHEXCommand();
 }
