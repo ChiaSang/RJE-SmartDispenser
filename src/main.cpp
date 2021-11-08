@@ -56,6 +56,7 @@ int currentState;    // the current reading from the input pin
 unsigned long pressedTime = 0;
 unsigned long releasedTime = 0;
 
+char rSerialCMD[32] = "";
 // ======================================================================
 // Log config
 void printTimestamp(Print *_logOutput)
@@ -357,6 +358,11 @@ void cmd_set(MyCommandParser::Argument *args, char *response)
 // Loop getDown command and receive acknowledge message
 void getDown()
 {
+  if (strlen(rSerialCMD) > 8)
+  {
+    Log.notice("HEX Command: %s" CR, rSerialCMD);
+    memset(rSerialCMD, 0, 32);
+  }
   if (Serial2.available())
   {
     char line[32];
@@ -390,14 +396,19 @@ void getDown()
 }
 
 // ======================================================================
-// Loop getDown command and receive acknowledge message
+// parse HEX Command from rSerial
 void parseHEXCommand()
 {
-  String hex_cmd = "";
   while (rSerial.available())
   {
-    // hex_cmd += rSerial.read();
-    Log.notice("HEX Command: %X" CR, rSerial.read());
+    char hex_cmd[2];
+    unsigned int hex_num = rSerial.read();
+    sprintf(hex_cmd, "%02X%c", hex_num, ' ');
+    strcat(rSerialCMD, hex_cmd);
+
+    // char hex_str = rSerial.read();
+    // Log.notice("HEX Command: %X" CR, String(hex_str, HEX));
+    // Log.notice("HEX Command: %s" CR, hex_cmd);
   }
 }
 
