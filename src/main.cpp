@@ -19,19 +19,32 @@ HardwareSerial rSerial(1);
 typedef CommandParser<> MyCommandParser;
 MyCommandParser parser;
 
-byte openRJE[] = {0xA5, 0xFA, 0x00, 0x81, 0x01, 0x00, 0x02, 0x21, 0xFB};
-byte closeRJE[] = {0xA5, 0xFA, 0x00, 0x81, 0x02, 0x00, 0x02, 0x22, 0xFB};
-byte temp50[] = {0xA5, 0xFA, 0x00, 0x81, 0x19, 0x00, 0x02, 0x39, 0xFB};
-byte temp55[] = {0xA5, 0xFA, 0x00, 0x81, 0x1A, 0x00, 0x02, 0x3A, 0xFB};
-byte temp60[] = {0xA5, 0xFA, 0x00, 0x81, 0x1B, 0x00, 0x02, 0x3B, 0xFB};
-byte temp65[] = {0xA5, 0xFA, 0x00, 0x81, 0x1C, 0x00, 0x02, 0x3C, 0xFB};
-byte temp70[] = {0xA5, 0xFA, 0x00, 0x81, 0x1D, 0x00, 0x02, 0x3D, 0xFB};
-byte temp75[] = {0xA5, 0xFA, 0x00, 0x81, 0x1E, 0x00, 0x02, 0x3E, 0xFB};
-byte temp80[] = {0xA5, 0xFA, 0x00, 0x81, 0x1F, 0x00, 0x02, 0x3F, 0xFB};
-byte temp85[] = {0xA5, 0xFA, 0x00, 0x81, 0x20, 0x00, 0x02, 0x40, 0xFB};
-byte temp90[] = {0xA5, 0xFA, 0x00, 0x81, 0x21, 0x00, 0x02, 0x41, 0xFB};
-byte temp95[] = {0xA5, 0xFA, 0x00, 0x81, 0x22, 0x00, 0x02, 0x42, 0xFB};
-byte temp100[] = {0xA5, 0xFA, 0x00, 0x81, 0x23, 0x00, 0x02, 0x43, 0xFB};
+byte openRJE[] = {0xA5, 0x05, 0x16, 0x01, 0xC1, 0xFB};
+byte closeRJE[] = {0xA5, 0x05, 0x16, 0x01, 0xC1, 0xFB};
+
+byte keepwarmon[] = {0xA5, 0x05, 0x17, 0x01, 0xC2, 0xFB};
+byte keepwarmoff[] = {0xA5, 0x05, 0x17, 0x01, 0xC2, 0xFB};
+
+byte heaton[] = {0xA5, 0x05, 0x18, 0x01, 0xC3, 0xFB};
+byte heatoff[] = {0xA5, 0x05, 0x18, 0x01, 0xC3, 0xFB};
+
+byte heatwateron[] = {0xA5, 0x05, 0x19, 0x01, 0xC4, 0xFB};
+byte heatwateroff[] = {0xA5, 0x05, 0x19, 0x01, 0xC4, 0xFB};
+
+byte wateron[] = {0xA5, 0x05, 0x1A, 0x01, 0xC5, 0xFB};
+byte wateroff[] = {0xA5, 0x05, 0x1A, 0x01, 0xC5, 0xFB};
+
+byte temp50[] = {0xA5, 0x05, 0x1B, 0x32, 0xF7, 0xFB};
+byte temp55[] = {0xA5, 0x05, 0x1B, 0x37, 0xFC, 0xFB};
+byte temp60[] = {0xA5, 0x05, 0x1B, 0x3C, 0x01, 0xFB};
+byte temp65[] = {0xA5, 0x05, 0x1B, 0x41, 0x06, 0xFB};
+byte temp70[] = {0xA5, 0x05, 0x1B, 0x46, 0x0B, 0xFB};
+byte temp75[] = {0xA5, 0x05, 0x1B, 0x4B, 0x10, 0xFB};
+byte temp80[] = {0xA5, 0x05, 0x1B, 0x50, 0x15, 0xFB};
+byte temp85[] = {0xA5, 0x05, 0x1B, 0x55, 0x1A, 0xFB};
+byte temp90[] = {0xA5, 0x05, 0x1B, 0x5A, 0x1F, 0xFB};
+byte temp95[] = {0xA5, 0x05, 0x1B, 0x5F, 0x24, 0xFB};
+byte temp100[] = {0xA5, 0x05, 0x1B, 0x64, 0x29, 0xFB};
 
 int currentTemperature = 0;
 int settingTemperature = 50;
@@ -42,9 +55,11 @@ int hRelaySW = 0;
 int wRelaySW = 0;
 
 unsigned int getDownInterval = 100;
+unsigned int rInterval = 200;
 unsigned int reportInterval = 5000;
 unsigned long getDownPreviousMillis = 0;
 unsigned long reportPreviousMillis = 0;
+unsigned long rPreviousMillis = 0;
 
 // constants won't change. They're used here to set pin numbers:
 const int BUTTON_PIN = 0;         // the number of the pushbutton pin
@@ -301,6 +316,16 @@ void cmd_set(MyCommandParser::Argument *args, char *response)
       String prefix_reply_msg = "properties_changed 2 3 ";
       String reply = prefix_reply_msg + String(warmingSW) + "\r";
       Serial2.print(reply);
+
+      if (warmingSW == 1)
+      {
+        rSerial.write(keepwarmon, sizeof(keepwarmon));
+      }
+      else
+      {
+        rSerial.write(keepwarmoff, sizeof(keepwarmoff));
+      }
+
       break;
     }
 
@@ -312,6 +337,16 @@ void cmd_set(MyCommandParser::Argument *args, char *response)
       String prefix_reply_msg = "properties_changed 2 4 ";
       String reply = prefix_reply_msg + String(heatingSW) + "\r";
       Serial2.print(reply);
+
+      if (heatingSW == 1)
+      {
+        rSerial.write(heaton, sizeof(heatwateron));
+      }
+      else
+      {
+        rSerial.write(heatoff, sizeof(heatwateroff));
+      }
+
       break;
     }
 
@@ -323,6 +358,16 @@ void cmd_set(MyCommandParser::Argument *args, char *response)
       String prefix_reply_msg = "properties_changed 2 5 ";
       String reply = prefix_reply_msg + String(hRelaySW) + "\r";
       Serial2.print(reply);
+
+      if (hRelaySW == 1)
+      {
+        rSerial.write(heatwateron, sizeof(heatwateron));
+      }
+      else
+      {
+        rSerial.write(heatwateroff, sizeof(heatwateroff));
+      }
+
       break;
     }
 
@@ -334,6 +379,16 @@ void cmd_set(MyCommandParser::Argument *args, char *response)
       String prefix_reply_msg = "properties_changed 2 6 ";
       String reply = prefix_reply_msg + String(wRelaySW) + "\r";
       Serial2.print(reply);
+
+      if (wRelaySW == 1)
+      {
+        rSerial.write(wateron, sizeof(wateron));
+      }
+      else
+      {
+        rSerial.write(wateroff, sizeof(wateroff));
+      }
+
       break;
     }
 
@@ -345,6 +400,52 @@ void cmd_set(MyCommandParser::Argument *args, char *response)
       String prefix_reply_msg = "properties_changed 2 7 ";
       String reply = prefix_reply_msg + String(settingTemperature) + "\r";
       Serial2.print(reply);
+
+      if ((int32_t)args[2].asInt64 == 50)
+      {
+        rSerial.write(temp50, sizeof(temp50));
+      }
+      else if ((int32_t)args[2].asInt64 == 55)
+      {
+        rSerial.write(temp55, sizeof(temp55));
+      }
+      else if ((int32_t)args[2].asInt64 == 60)
+      {
+        rSerial.write(temp60, sizeof(temp55));
+      }
+      else if ((int32_t)args[2].asInt64 == 65)
+      {
+        rSerial.write(temp65, sizeof(temp55));
+      }
+      else if ((int32_t)args[2].asInt64 == 70)
+      {
+        rSerial.write(temp70, sizeof(temp55));
+      }
+      else if ((int32_t)args[2].asInt64 == 75)
+      {
+        rSerial.write(temp75, sizeof(temp55));
+      }
+      else if ((int32_t)args[2].asInt64 == 80)
+      {
+        rSerial.write(temp80, sizeof(temp55));
+      }
+      else if ((int32_t)args[2].asInt64 == 85)
+      {
+        rSerial.write(temp85, sizeof(temp55));
+      }
+      else if ((int32_t)args[2].asInt64 == 90)
+      {
+        rSerial.write(temp90, sizeof(temp100));
+      }
+      else if ((int32_t)args[2].asInt64 == 95)
+      {
+        rSerial.write(temp95, sizeof(temp100));
+      }
+      else if ((int32_t)args[2].asInt64 == 100)
+      {
+        rSerial.write(temp100, sizeof(temp100));
+      }
+
       break;
     }
 
@@ -354,15 +455,15 @@ void cmd_set(MyCommandParser::Argument *args, char *response)
   }
 }
 
+void cmd_hex(MyCommandParser::Argument *args, char *response)
+{
+  Log.notice("recv: cmd_hex: %s" CR, args[1].asString);
+}
+
 // ======================================================================
 // Loop getDown command and receive acknowledge message
 void getDown()
 {
-  if (strlen(rSerialCMD) > 8)
-  {
-    Log.notice("HEX Command: %s" CR, rSerialCMD);
-    memset(rSerialCMD, 0, 32);
-  }
   if (Serial2.available())
   {
     char line[32];
@@ -399,16 +500,52 @@ void getDown()
 // parse HEX Command from rSerial
 void parseHEXCommand()
 {
+  char tem[4] = "";
+  char ctem[4] = "";
   while (rSerial.available())
   {
     char hex_cmd[2];
     unsigned int hex_num = rSerial.read();
-    sprintf(hex_cmd, "%02X%c", hex_num, ' ');
+    // sprintf(hex_cmd, "%02X%c", hex_num, ' ');
+    sprintf(hex_cmd, "%02X", hex_num);
     strcat(rSerialCMD, hex_cmd);
+  }
+  strncpy(tem, rSerialCMD + 14, 2);
+  strncpy(ctem, rSerialCMD + 16, 2);
+  sscanf(tem, "%x", &settingTemperature);
+  sscanf(ctem, "%x", &currentTemperature);
 
-    // char hex_str = rSerial.read();
-    // Log.notice("HEX Command: %X" CR, String(hex_str, HEX));
-    // Log.notice("HEX Command: %s" CR, hex_cmd);
+  if (rSerialCMD[0] == 'A' && strlen(rSerialCMD) == 24)
+  {
+    // Log.notice("recv: (hex)%s(%d)" CR, rSerialCMD, strlen(rSerialCMD));
+    Log.notice("recv: (hex)%s(%d) | sw(%c) wsw(%c) hsw(%c) sw1(%c) sw2(%c) tem(%d) ctem(%d) err(%c)" CR, rSerialCMD, strlen(rSerialCMD), rSerialCMD[5], rSerialCMD[7], rSerialCMD[9], rSerialCMD[11], rSerialCMD[13], settingTemperature, currentTemperature, rSerialCMD[19]);
+
+    deviceSW = rSerialCMD[5] - '0';
+    warmingSW = rSerialCMD[7] - '0';
+    heatingSW = rSerialCMD[9] - '0';
+    hRelaySW = rSerialCMD[11] - '0';
+    wRelaySW = rSerialCMD[13] - '0';
+
+    String report_msg = "properties_changed 2 8 " + String(currentTemperature) + "\r";
+    Serial2.print(report_msg);
+
+    memset(rSerialCMD, 0, 32);
+  }
+  if (rSerialCMD[0] == '5' && strlen(rSerialCMD) == 12)
+  {
+    Log.notice("recv: (hex)%s(%d)" CR, rSerialCMD, strlen(rSerialCMD));
+
+    String report_msg = "properties_changed 2 8 " + String(currentTemperature) + "\r";
+    Serial2.print(report_msg);
+    // Log.notice("send: %s" CR, report_msg.c_str());
+
+    memset(rSerialCMD, 0, 32);
+  }
+  else
+  {
+    memset(rSerialCMD, 0, 32);
+    memset(tem, 0, 4);
+    memset(ctem, 0, 4);
   }
 }
 
@@ -482,19 +619,32 @@ void loop()
     getDownPreviousMillis = currentMillis;
     getDown();
   }
-  if (currentMillis - reportPreviousMillis >= reportInterval)
+
+  // if (currentMillis - reportPreviousMillis >= reportInterval)
+  // {
+  //   reportPreviousMillis = currentMillis;
+  //   report_state();
+  // }
+
+  if (currentMillis - rPreviousMillis >= rInterval)
   {
-    reportPreviousMillis = currentMillis;
-    report_state();
+    rPreviousMillis = currentMillis;
+    parseHEXCommand();
   }
+
   else if (currentMillis - getDownPreviousMillis <= 0)
   {
     getDownPreviousMillis = currentMillis;
   }
-  else if (currentMillis - reportPreviousMillis <= 0)
+
+  // else if (currentMillis - reportPreviousMillis <= 0)
+  // {
+  //   reportPreviousMillis = currentMillis;
+  // }
+
+  else if (currentMillis - rPreviousMillis <= 0)
   {
-    reportPreviousMillis = currentMillis;
+    rPreviousMillis = currentMillis;
   }
   longPressAction();
-  parseHEXCommand();
 }
